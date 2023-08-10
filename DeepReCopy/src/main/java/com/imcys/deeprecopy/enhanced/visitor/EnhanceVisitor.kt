@@ -46,11 +46,11 @@ class EnhanceVisitor(
             appendLine("package $packageName\n\n")
 
             appendLine("data class $complexClassName(")
-            getTmpDataClass(params)
+            appendParams(params)
             appendLine(")\n\n")
 
             appendLine("fun $className.deepCopy(")
-            getParameters(params)
+            appendParamsWithDefaultValues(params)
             appendLine("): $className {")
             appendLine("    return $className(${getReturn(params)})")
             appendLine("}\n\n")
@@ -65,7 +65,7 @@ class EnhanceVisitor(
         return extensionFunctionCode
     }
 
-    private fun StringBuilder.getTmpDataClass(params: List<KSValueParameter>) {
+    private fun StringBuilder.appendParams(params: List<KSValueParameter>) {
         params.forEach {
             val paramName = it.name?.getShortName() ?: "Erro"
             val typeName = generateParamsType(it.type)
@@ -75,7 +75,7 @@ class EnhanceVisitor(
         }
     }
 
-    private fun StringBuilder.getParameters(params: List<KSValueParameter>) {
+    private fun StringBuilder.appendParamsWithDefaultValues(params: List<KSValueParameter>) {
         params.forEach {
             val paramName = it.name?.getShortName() ?: "Erro"
             val typeName = generateParamsType(it.type)
@@ -115,7 +115,6 @@ class EnhanceVisitor(
         deepCopySymbols.forEach {
             val classDeclaration = it as? KSClassDeclaration
             val classQualifiedName = classDeclaration?.qualifiedName?.asString() ?: ""
-
 
             if (classQualifiedName == typeName) {
                 val params = classDeclaration?.primaryConstructor?.parameters
@@ -178,22 +177,11 @@ class EnhanceVisitor(
         return typeName.toString().replace("[", "").replace("]", "")
     }
 
-    private fun getReturn(params: List<KSValueParameter>, objectName: String = ""): String {
-        val returnCode = buildString {
-            params.forEachIndexed { index, ksValueParameter ->
-                val paramName = ksValueParameter.name?.getShortName() ?: "Erro"
-                if (index != params.size - 1) {
-                    append(
-                        "$paramName = ${objectName}$paramName,",
-                    )
-                } else {
-                    append(
-                        "$paramName = ${objectName}$paramName",
-                    )
-                }
-            }
+    private fun getReturn(params: List<KSValueParameter>, prefix: String = ""): String {
+        return params.joinToString(", ") { param ->
+            val paramName = param.name?.getShortName() ?: "Error"
+            "$prefix$paramName"
         }
-        return returnCode
     }
 
     private fun generateComplexClassName(): String {
@@ -202,6 +190,7 @@ class EnhanceVisitor(
         val random = java.util.Random()
 
         val className = buildString {
+            append("_DeepReCopy_")
             repeat(10) {
                 val randomLetter = letters[random.nextInt(letters.length)]
                 val randomDigit = numbers[random.nextInt(numbers.length)]
