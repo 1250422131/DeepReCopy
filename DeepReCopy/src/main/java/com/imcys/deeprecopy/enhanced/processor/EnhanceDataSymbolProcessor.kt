@@ -31,7 +31,6 @@ class EnhanceDataSymbolProcessor(private val environment: SymbolProcessorEnviron
         // 干掉无法处理的类
         val ret = mutableListOf<KSAnnotated>()
         ret.addAll(enhancedDataSymbols.filter { !it.validate() }.toList())
-        ret.addAll(deepCopySymbols.filter { !it.validate() }.toList())
 
         // 执行生成
         logger.info("执行开始")
@@ -40,10 +39,9 @@ class EnhanceDataSymbolProcessor(private val environment: SymbolProcessorEnviron
 
         return ret
     }
-
     private fun generateDeepCopyClass(
         symbols: Sequence<KSAnnotated>,
-        deepCopySymbols: Sequence<KSAnnotated>
+        deepCopySymbols: Sequence<KSAnnotated>,
     ) {
         symbols
             .filter { it is KSClassDeclaration && it.validate() } // 检查是否为Data类

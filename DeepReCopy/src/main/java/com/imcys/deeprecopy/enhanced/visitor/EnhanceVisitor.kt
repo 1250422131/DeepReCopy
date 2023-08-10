@@ -11,12 +11,11 @@ import com.google.devtools.ksp.symbol.Nullability
 
 class EnhanceVisitor(
     private val environment: SymbolProcessorEnvironment,
-    private val deepCopySymbols: Sequence<KSAnnotated>
+    private val deepCopySymbols: Sequence<KSAnnotated>,
 ) : KSVisitorVoid() {
 
     override fun visitClassDeclaration(classDeclaration: KSClassDeclaration, data: Unit) {
         super.visitClassDeclaration(classDeclaration, data)
-
 
         val primaryConstructor = classDeclaration.primaryConstructor!!
         val params = primaryConstructor.parameters
@@ -40,44 +39,38 @@ class EnhanceVisitor(
     private fun generateCode(
         packageName: String,
         className: String,
-        params: List<KSValueParameter>
+        params: List<KSValueParameter>,
     ): String {
+        val complexClassName = generateComplexClassName()
         val extensionFunctionCode = buildString {
             appendLine("package $packageName\n\n")
 
-            appendLine("data class ${className}Tmp(")
+            appendLine("data class $complexClassName(")
             getTmpDataClass(params)
             appendLine(")\n\n")
 
             appendLine("fun $className.deepCopy(")
-
             getParameters(params)
-
             appendLine("): $className {")
-            appendLine("    // ...")
             appendLine("    return $className(${getReturn(params)})")
-
             appendLine("}\n\n")
 
             appendLine("fun $className.deepCopy(")
-            appendLine("copyFunction:${className}Tmp.()->Unit): $className{")
-            appendLine("val copy = ${className}Tmp(${getReturn(params)})")
-            appendLine("copy.copyFunction()")
-            appendLine("return this.deepCopy(${getReturn(params, "copy.")})")
+            appendLine("    copyFunction:$complexClassName.()->Unit): $className{")
+            appendLine("    val copy = $complexClassName(${getReturn(params)})")
+            appendLine("    copy.copyFunction()")
+            appendLine("    return this.deepCopy(${getReturn(params, "copy.")})")
             appendLine("}")
-
-
         }
         return extensionFunctionCode
     }
 
     private fun StringBuilder.getTmpDataClass(params: List<KSValueParameter>) {
-
         params.forEach {
             val paramName = it.name?.getShortName() ?: "Erro"
             val typeName = generateParamsType(it.type)
             appendLine(
-                "var $paramName : $typeName,"
+                "    var $paramName : $typeName,",
             )
         }
     }
@@ -87,7 +80,7 @@ class EnhanceVisitor(
             val paramName = it.name?.getShortName() ?: "Erro"
             val typeName = generateParamsType(it.type)
             appendLine(
-                "$paramName : $typeName${getDefaultValue(paramName, typeName)},"
+                "    $paramName : $typeName = ${getDefaultValue(paramName, typeName)},",
             )
             // 将参数的名称和类型名称追加到字符串构建器中
         }
@@ -95,33 +88,34 @@ class EnhanceVisitor(
 
     private fun getDefaultValue(
         paramName: String,
-        typeName: String
+        typeName: String,
     ): String {
-
-        return if (typeName != null && typeName.startsWith("kotlin.")) {
+        return if (typeName.startsWith("kotlin.")) {
             // 类型为标准类型
-            " = this.$paramName "
+            if (typeName in "?") "this?.$paramName" else "this.$paramName"
         } else {
             val newParamCode = getNewParamCode(paramName, typeName)
             if (newParamCode.isNullOrBlank()) {
-                " = this.$paramName"
+                if (typeName in "?") "this?.$paramName" else "this.$paramName"
             } else {
-                " = $typeName${getNewParamCode(paramName, typeName)}"
-            }
+                val tmpTypeName = typeName.replace("?", "")
+                    .replace("<", "")
+                    .replace(">", "")
 
+                "$tmpTypeName($newParamCode)" // new xxx()
+            }
         }
     }
-
 
     /**
      * 组装一个参数的new XXXX()
      */
     @Suppress("NewApi")
     private fun getNewParamCode(fParamName: String, typeName: String): String {
-
         deepCopySymbols.forEach {
             val classDeclaration = it as? KSClassDeclaration
             val classQualifiedName = classDeclaration?.qualifiedName?.asString() ?: ""
+
 
             if (classQualifiedName == typeName) {
                 val params = classDeclaration?.primaryConstructor?.parameters
@@ -134,11 +128,11 @@ class EnhanceVisitor(
 
                         if (index != params.size - 1) {
                             append(
-                                "$paramName ${getDefaultValue(mParamName, typeName)}, "
+                                "$paramName = ${getDefaultValue(mParamName, typeName)}, ",
                             )
                         } else {
                             append(
-                                "$paramName${getDefaultValue(mParamName, typeName)}"
+                                "$paramName = ${getDefaultValue(mParamName, typeName)}",
                             )
                         }
                     } ?: apply {
@@ -146,9 +140,8 @@ class EnhanceVisitor(
                     }
                 }
 
-                return "($extensionFunctionCode)"
+                return "$extensionFunctionCode"
             }
-
         }
 
         return ""
@@ -159,10 +152,11 @@ class EnhanceVisitor(
             type.resolve().declaration.qualifiedName?.asString() ?: "<ERROR>",
             // 获取参数的类型名称，如果获取失败，则使用 "<ERROR>"
         )
+
         val typeArgs = type.element!!.typeArguments
         // 获取参数的类型参数列表
 
-        //可能存在泛型的情况
+        // 可能存在泛型的情况
         if (type.element!!.typeArguments.isNotEmpty()) {
             // 检查类型参数列表是否非空
             typeName.append("<")
@@ -171,33 +165,51 @@ class EnhanceVisitor(
                     val type = typeArgument.type?.resolve()
                     // 获取类型参数的类型，并尝试解析其声明
                     "${typeArgument.variance.label} ${type?.declaration?.qualifiedName?.asString() ?: "ERROR"}" +
-                            if (type?.nullability == Nullability.NULLABLE) "?" else ""
+                        if (type?.nullability == Nullability.NULLABLE) "?" else ""
                     // 构建类型参数的字符串表示形式，包括协变/逆变标记和类型参数的完全限定名称
                 },
             )
             typeName.append(">")
         }
 
-        return typeName.toString()
+        val mType = type.resolve()
+        typeName.append(if (mType.nullability == Nullability.NULLABLE) "?" else "")
+
+        return typeName.toString().replace("[", "").replace("]", "")
     }
 
-
-}
-
-private fun getReturn(params: List<KSValueParameter>, objectName: String = ""): String {
-    val returnCode = buildString {
-        params.forEachIndexed { index, ksValueParameter ->
-            val paramName = ksValueParameter.name?.getShortName() ?: "Erro"
-            if (index != params.size - 1) {
-                append(
-                    "$paramName = ${objectName}$paramName,"
-                )
-            } else {
-                append(
-                    "$paramName = ${objectName}$paramName"
-                )
+    private fun getReturn(params: List<KSValueParameter>, objectName: String = ""): String {
+        val returnCode = buildString {
+            params.forEachIndexed { index, ksValueParameter ->
+                val paramName = ksValueParameter.name?.getShortName() ?: "Erro"
+                if (index != params.size - 1) {
+                    append(
+                        "$paramName = ${objectName}$paramName,",
+                    )
+                } else {
+                    append(
+                        "$paramName = ${objectName}$paramName",
+                    )
+                }
             }
         }
+        return returnCode
     }
-    return returnCode
+
+    private fun generateComplexClassName(): String {
+        val letters = "abcdefghijklmnopqrstuvwxyz"
+        val numbers = "0123456789"
+        val random = java.util.Random()
+
+        val className = buildString {
+            repeat(10) {
+                val randomLetter = letters[random.nextInt(letters.length)]
+                val randomDigit = numbers[random.nextInt(numbers.length)]
+                append(randomLetter)
+                append(randomDigit)
+            }
+        }
+
+        return className
+    }
 }

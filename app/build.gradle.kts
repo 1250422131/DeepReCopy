@@ -2,8 +2,7 @@
 plugins {
     alias(libs.plugins.com.android.application)
     alias(libs.plugins.org.jetbrains.kotlin.android)
-    id("com.google.devtools.ksp") version "1.8.10-1.0.9"
-
+    alias(libs.plugins.com.google.devtools.ksp)
 }
 
 android {
@@ -51,8 +50,6 @@ android {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
         }
     }
-
-
 }
 
 kotlin {
@@ -67,9 +64,6 @@ kotlin {
         kotlin.srcDir("build/generated/ksp/test/kotlin")
     }
 }
-
-
-
 
 dependencies {
     implementation(project(":DeepReCopy"))
