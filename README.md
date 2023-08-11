@@ -101,28 +101,28 @@ data class BData(val doc: String, val content: String)
 
 ```kotlin
 data class _ADataCopyFun(
-    var name: kotlin.String,
-    var title: kotlin.String,
-    var bData: com.imcys.deeprecopy.demo.BData,
+    var name : kotlin.String,
+    var title : kotlin.String,
+    var bData : com.imcys.deeprecopy.demo.BData,
 )
 
 fun AData.deepCopy(
-    name: kotlin.String = this.name,
-    title: kotlin.String = this.title,
-    bData: com.imcys.deeprecopy.demo.BData = this.bData,
+    name : kotlin.String = this.name,
+    title : kotlin.String = this.title,
+    bData : com.imcys.deeprecopy.demo.BData = com.imcys.deeprecopy.demo.BData(doc = this.bData.doc, content = this.bData.content),
 ): AData {
     return AData(name, title, bData)
 }
 
 fun AData.deepCopy(
-    copyFunction: _ADataCopyFun.() -> Unit
-): AData {
+    copyFunction:_ADataCopyFun.()->Unit): AData{
     val copyData = _ADataCopyFun(name, title, bData)
     copyData.copyFunction()
     return this.deepCopy(copyData.name, copyData.title, copyData.bData)
 }
-```
 
+```
+其中@EnhancedData是注解需要扩展深拷贝函数的Data类，而@DeepCopy则是为了让Data类中的对象被深拷贝。
 这是生成后的数据类，事实上，我们发现deepCopy重新返回了一个新的AData，同时，bData也被重新new了一个出来，这就确保了内部对象确实发生了改变。
 
 ```kotlin
