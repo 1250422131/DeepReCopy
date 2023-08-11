@@ -19,13 +19,6 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        var aData = AData("name", "title", BData("doc", "content"))
-        aData = aData.deepCopy {
-            name = "newName"
-            bData = BData("newDoc", "newContent")
-        }
-
-
 
         setContent {
             DeepReCopyTheme {

@@ -13,7 +13,7 @@ DeepReCopy是针对Kotlin的Data类所开发的深度拷贝库，利用KSP动态
 
 ```groovy
 maven { url 'https://jitpack.io' }
-```
+``` 
 
 如果你是kts扩展脚本，那么可以使用kotlin版本
 
@@ -25,7 +25,14 @@ maven {
 
 ### 库的引入
 
-正在上传
+```groovy
+implementation 'com.github.1250422131.DeepReCopy:core:<version>'
+ksp 'com.github.1250422131.DeepReCopy:compiler:<version>'
+```
+```kotlin
+implementation("com.github.1250422131.DeepReCopy:core:<version>")
+ksp("com.github.1250422131.DeepReCopy:compiler:<version>")
+```
 
 ## 为什么要深拷贝
 
