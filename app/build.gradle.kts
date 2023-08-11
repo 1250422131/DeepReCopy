@@ -32,12 +32,12 @@ android {
         }
     }
     compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_1_8
-        targetCompatibility = JavaVersion.VERSION_1_8
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
     }
 
     kotlinOptions {
-        jvmTarget = "1.8"
+        jvmTarget = "17"
     }
     buildFeatures {
         compose = true
@@ -53,10 +53,7 @@ android {
 }
 
 kotlin {
-    jvmToolchain(8)
-}
-
-kotlin {
+    jvmToolchain(17)
     sourceSets.main {
         kotlin.srcDir("build/generated/ksp/main/kotlin")
     }
@@ -64,6 +61,7 @@ kotlin {
         kotlin.srcDir("build/generated/ksp/test/kotlin")
     }
 }
+
 
 dependencies {
     compileOnly(project(":core"))
