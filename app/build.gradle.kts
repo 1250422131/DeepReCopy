@@ -66,8 +66,8 @@ kotlin {
 }
 
 dependencies {
-    implementation(project(":DeepReCopy"))
-    ksp(project(":DeepReCopy"))
+    compileOnly(project(":core"))
+    ksp(project(":compiler"))
     implementation(libs.core.ktx)
     implementation(libs.lifecycle.runtime.ktx)
     implementation(libs.activity.compose)

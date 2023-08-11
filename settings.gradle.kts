@@ -21,4 +21,5 @@ dependencyResolutionManagement {
 
 rootProject.name = "DeepReCopy"
 include(":app")
-include(":DeepReCopy")
+include(":compiler")
+include(":core")
