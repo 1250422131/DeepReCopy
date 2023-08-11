@@ -109,9 +109,9 @@ data class _ADataCopyFun(
 fun AData.deepCopy(
     name : kotlin.String = this.name,
     title : kotlin.String = this.title,
-    bData : com.imcys.deeprecopy.demo.BData = com.imcys.deeprecopy.demo.BData(doc = this.bData.doc, content = this.bData.content),
+    bData : com.imcys.deeprecopy.demo.BData = this.bData,
 ): AData {
-    return AData(name, title, bData)
+    return AData(name, title, com.imcys.deeprecopy.demo.BData(doc = bData.doc, content = bData.content))
 }
 
 fun AData.deepCopy(

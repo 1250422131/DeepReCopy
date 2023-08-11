@@ -57,7 +57,7 @@ class EnhanceVisitor(
 
             appendLine("fun $className.deepCopy(")
             appendLine("    copyFunction:$complexClassName.()->Unit): $className{")
-            appendLine("    val copyData = $complexClassName(${getReturn(params)})")
+            appendLine("    val copyData = $complexClassName(${getReturn(params, "")})")
             appendLine("    copyData.copyFunction()")
             appendLine("    return this.deepCopy(${getReturn(params, "copyData.")})")
             appendLine("}")
@@ -79,10 +79,10 @@ class EnhanceVisitor(
         params.forEach {
             val paramName = it.name?.getShortName() ?: "Erro"
             val typeName = generateParamsType(it.type)
+            val valueCode = if (typeName in "?") "this?.$paramName," else "this.$paramName,"
             appendLine(
-                "    $paramName : $typeName = ${getDefaultValue(paramName, typeName)},",
+                "    $paramName : $typeName = $valueCode",
             )
-            // 将参数的名称和类型名称追加到字符串构建器中
         }
     }
 
@@ -163,7 +163,7 @@ class EnhanceVisitor(
                     val type = typeArgument.type?.resolve()
                     // 获取类型参数的类型，并尝试解析其声明
                     "${typeArgument.variance.label} ${type?.declaration?.qualifiedName?.asString() ?: "ERROR"}" +
-                            if (type?.nullability == Nullability.NULLABLE) "?" else ""
+                        if (type?.nullability == Nullability.NULLABLE) "?" else ""
                     // 构建类型参数的字符串表示形式，包括协变/逆变标记和类型参数的完全限定名称
                 },
             )
@@ -180,6 +180,18 @@ class EnhanceVisitor(
         return params.joinToString(", ") { param ->
             val paramName = param.name?.getShortName() ?: "Error"
             "$prefix$paramName"
+        }
+    }
+
+    private fun getReturn(params: List<KSValueParameter>): String {
+        return params.joinToString(", ") { param ->
+            val paramName = param.name?.getShortName() ?: "Error"
+            val typeName = generateParamsType(param.type)
+            if (typeName.startsWith("kotlin.")) {
+                paramName
+            } else {
+                "$typeName(${getNewParamCode(paramName, typeName)})".replace("this.", "")
+            }
         }
     }
 
