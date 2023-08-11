@@ -1,4 +1,13 @@
+
+<div align="center">
+    
 # DeepReCopy
+
+[![](https://jitpack.io/v/1250422131/DeepReCopy.svg)](https://jitpack.io/#1250422131/DeepReCopy)
+![GitHub](https://img.shields.io/github/license/1250422131/bilibilias)
+[![Kotlin](https://img.shields.io/badge/kotlin-1.8.10-blue.svg?logo=kotlin)](http://kotlinlang.org)
+
+</div>
 
 ## 它可以做什么
 
