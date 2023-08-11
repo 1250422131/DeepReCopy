@@ -41,7 +41,7 @@ class EnhanceVisitor(
         className: String,
         params: List<KSValueParameter>,
     ): String {
-        val complexClassName = generateComplexClassName()
+        val complexClassName = "_${className}CopyFun"
         val extensionFunctionCode = buildString {
             appendLine("package $packageName\n\n")
 
@@ -57,9 +57,9 @@ class EnhanceVisitor(
 
             appendLine("fun $className.deepCopy(")
             appendLine("    copyFunction:$complexClassName.()->Unit): $className{")
-            appendLine("    val copy = $complexClassName(${getReturn(params)})")
-            appendLine("    copy.copyFunction()")
-            appendLine("    return this.deepCopy(${getReturn(params, "copy.")})")
+            appendLine("    val copyData = $complexClassName(${getReturn(params)})")
+            appendLine("    copyData.copyFunction()")
+            appendLine("    return this.deepCopy(${getReturn(params, "copyData.")})")
             appendLine("}")
         }
         return extensionFunctionCode

@@ -10,14 +10,21 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
-import com.imcys.deeprecopy.da.ATest
-import com.imcys.deeprecopy.da.MTest
 import com.imcys.deeprecopy.demo.AData
+import com.imcys.deeprecopy.demo.BData
+import com.imcys.deeprecopy.demo.deepCopy
 import com.imcys.deeprecopy.ui.theme.DeepReCopyTheme
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        var aData = AData("name", "title", BData("doc", "content"))
+        aData = aData.deepCopy {
+            name = "newName"
+            bData = BData("newDoc", "newContent")
+        }
+
 
 
         setContent {
