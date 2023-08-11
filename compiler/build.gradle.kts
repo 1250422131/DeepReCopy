@@ -6,13 +6,12 @@ plugins {
 }
 
 group = "com.imcys.deeprecopy"
-version = "0.0.1Alpha-01"
+version = "0.0.1Alpha-03"
 
 java {
     sourceCompatibility = JavaVersion.VERSION_17
     targetCompatibility = JavaVersion.VERSION_17
 }
-
 
 dependencies {
     implementation(project(":core"))
