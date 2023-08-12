@@ -6,7 +6,7 @@ plugins {
 }
 
 group = "com.imcys.deeprecopy"
-version = "0.0.1Alpha-03"
+version = "0.0.1Alpha-04"
 
 
 java {
