@@ -1,5 +1,7 @@
 package com.imcys.deeprecopy.compiler.visitor
 
+import com.google.devtools.ksp.KspExperimental
+import com.google.devtools.ksp.isAnnotationPresent
 import com.google.devtools.ksp.processing.Dependencies
 import com.google.devtools.ksp.processing.SymbolProcessorEnvironment
 import com.google.devtools.ksp.symbol.KSAnnotated
@@ -9,22 +11,28 @@ import com.google.devtools.ksp.symbol.KSTypeReference
 import com.google.devtools.ksp.symbol.KSValueParameter
 import com.google.devtools.ksp.symbol.KSVisitorVoid
 import com.google.devtools.ksp.symbol.Nullability
-import java.io.File
+import com.imcys.deeprecopy.an.EnhancedData
+import java.lang.Exception
+
 
 class EnhanceVisitor(
     private val environment: SymbolProcessorEnvironment,
-    private val deepCopySymbols: Sequence<KSAnnotated>,
+    private val _deepCopySymbols: Sequence<KSAnnotated>,
 ) : KSVisitorVoid() {
 
     override fun visitClassDeclaration(classDeclaration: KSClassDeclaration, data: Unit) {
         super.visitClassDeclaration(classDeclaration, data)
 
-        val primaryConstructor = classDeclaration.primaryConstructor!!
+        //检查是否能找到主构造函数，找不到就报错
+        val primaryConstructor = classDeclaration.primaryConstructor
+            ?: throw Exception("error no find primaryConstructor")
+
+        // 获取类名，当前包名
         val params = primaryConstructor.parameters
-        // 获取类名和包名
         val className = classDeclaration.simpleName.asString()
         val packageName = classDeclaration.packageName.asString()
 
+        //创建KSP生成的文件
         val file = environment.codeGenerator.createNewFile(
             Dependencies(false, classDeclaration.containingFile!!),
             packageName,
@@ -34,7 +42,10 @@ class EnhanceVisitor(
         // 生成扩展函数的代码
         val extensionFunctionCode = generateCode(packageName, className, params)
 
+        //写入生成的代码
         file.write(extensionFunctionCode.toByteArray())
+
+        //释放内存
         file.close()
     }
 
@@ -42,33 +53,75 @@ class EnhanceVisitor(
         file.declarations.forEach { it.accept(this, Unit) }
     }
 
+    /**
+     * 生成开发代码
+     */
     private fun generateCode(
         packageName: String,
         className: String,
         params: List<KSValueParameter>,
     ): String {
+        //生成临时类
         val complexClassName = "_${className}CopyFun"
         val extensionFunctionCode = buildString {
+
+            //添加包声明
             appendLine("package $packageName\n\n")
 
-            appendLine("data class $complexClassName(")
-            appendParams(params)
-            appendLine(")\n\n")
+            //新增为DSL写法支持的Data类
+            appendCopyFunDataClassCode(complexClassName, params)
 
-            appendLine("fun $className.deepCopy(")
-            appendParamsWithDefaultValues(params)
-            appendLine("): $className {")
-            appendLine("    return $className(${getReturn(params)})")
-            appendLine("}\n\n")
+            //新增深拷贝扩展函数代码
+            appendDeepCopyFunCode(className, params)
 
-            appendLine("fun $className.deepCopy(")
-            appendLine("    copyFunction:$complexClassName.()->Unit): $className{")
-            appendLine("    val copyData = $complexClassName(${getReturn(params, "")})")
-            appendLine("    copyData.copyFunction()")
-            appendLine("    return this.deepCopy(${getReturn(params, "copyData.")})")
-            appendLine("}")
+            //新增DSL写法的深拷贝扩展函数代码
+            appendDSLDeepCodyFunCode(className, complexClassName, params)
+
         }
         return extensionFunctionCode
+    }
+
+    /**
+     * 生成DSL写法的深拷贝扩展函数
+     */
+    private fun StringBuilder.appendDSLDeepCodyFunCode(
+        className: String,
+        complexClassName: String,
+        params: List<KSValueParameter>
+    ) {
+        appendLine("fun $className.deepCopy(")
+        appendLine("    copyFunction:$complexClassName.()->Unit): $className{")
+        appendLine("    val copyData = $complexClassName(${getReturn(params, "")})")
+        appendLine("    copyData.copyFunction()")
+        appendLine("    return this.deepCopy(${getReturn(params, "copyData.")})")
+        appendLine("}")
+    }
+
+    /**
+     * 生成真正的深拷贝方法代码
+     */
+    private fun StringBuilder.appendDeepCopyFunCode(
+        className: String,
+        params: List<KSValueParameter>
+    ) {
+        appendLine("fun $className.deepCopy(")
+        appendParamsWithDefaultValues(params)
+        appendLine("): $className {")
+        appendLine("    return $className(${getReturn(params)})")
+        appendLine("}\n\n")
+    }
+
+    /**
+     * 生成需要被深拷贝类的临时数据类代码
+     * 用来支持DSL写法
+     */
+    private fun StringBuilder.appendCopyFunDataClassCode(
+        complexClassName: String,
+        params: List<KSValueParameter>
+    ) {
+        appendLine("data class $complexClassName(")
+        appendParams(params)
+        appendLine(")\n\n")
     }
 
     private fun StringBuilder.appendParams(params: List<KSValueParameter>) {
@@ -92,60 +145,6 @@ class EnhanceVisitor(
         }
     }
 
-    private fun getDefaultValue(
-        paramName: String,
-        typeName: String,
-    ): String {
-        return if (typeName.startsWith("kotlin.")) {
-            // 类型为标准类型
-            if (typeName in "?") "this?.$paramName" else "this.$paramName"
-        } else {
-            if (typeName in "?") "this?.$paramName.deepCopy()" else "this.$paramName.deepCopy()"
-        }
-    }
-
-    /**
-     * 组装一个参数的new XXXX()
-     */
-    private fun getNewParamCode(fParamName: String, typeName: String): String {
-        val classList = java.lang.StringBuilder("")
-
-        deepCopySymbols.forEach {
-            val classDeclaration = it as? KSClassDeclaration
-            val classQualifiedName = classDeclaration?.qualifiedName?.asString() ?: ""
-
-
-            if (classQualifiedName == typeName) {
-                val params = classDeclaration?.primaryConstructor?.parameters
-
-                val extensionFunctionCode = buildString {
-                    params?.forEachIndexed { index, ksValueParameter ->
-                        val paramName = ksValueParameter.name?.getShortName() ?: "Erro"
-                        val typeName = generateParamsType(ksValueParameter.type)
-                        val mParamName = "$fParamName.$paramName"
-
-                        if (index != params.size - 1) {
-                            append(
-                                "$paramName = ${getDefaultValue(mParamName, typeName)}, ",
-                            )
-                        } else {
-                            append(
-                                "$paramName = ${getDefaultValue(mParamName, typeName)}",
-                            )
-                        }
-                    } ?: apply {
-                        return "3"
-                    }
-                }
-
-                return "$extensionFunctionCode"
-            }
-        }
-
-        classList.append(deepCopySymbols.toMutableList().size)
-
-        return classList.toString()
-    }
 
     private fun generateParamsType(type: KSTypeReference): String {
         val typeName = StringBuilder(
@@ -156,26 +155,27 @@ class EnhanceVisitor(
         val typeArgs = type.element!!.typeArguments
         // 获取参数的类型参数列表
 
-        // 可能存在泛型的情况
+        // 可能存在泛型的情况,需要解析泛型
         if (type.element!!.typeArguments.isNotEmpty()) {
             // 检查类型参数列表是否非空
             typeName.append("<")
-            typeName.append(
-                typeArgs.map { typeArgument ->
-                    val type = typeArgument.type?.resolve()
-                    // 获取类型参数的类型，并尝试解析其声明
+            typeArgs.forEach { typeArgument ->
+                val type = typeArgument.type?.resolve()
+                // 获取类型参数的类型，并尝试解析其声明
+                typeName.append(
                     "${typeArgument.variance.label} ${type?.declaration?.qualifiedName?.asString() ?: "ERROR"}" +
+                            //这里是因为有可能是可空的
                             if (type?.nullability == Nullability.NULLABLE) "?" else ""
-                    // 构建类型参数的字符串表示形式，包括协变/逆变标记和类型参数的完全限定名称
-                },
-            )
+                )
+            }
             typeName.append(">")
         }
 
+        // 如果类型可空，那么就在后面加上?
         val mType = type.resolve()
         typeName.append(if (mType.nullability == Nullability.NULLABLE) "?" else "")
 
-        return typeName.toString().replace("[", "").replace("]", "")
+        return typeName.toString()
     }
 
     private fun getReturn(params: List<KSValueParameter>, prefix: String = ""): String {
@@ -185,12 +185,14 @@ class EnhanceVisitor(
         }
     }
 
+    @OptIn(KspExperimental::class)
     private fun getReturn(params: List<KSValueParameter>): String {
         return params.joinToString(", ") { param ->
-
             val paramName = param.name?.getShortName() ?: "Error"
             val typeName = generateParamsType(param.type)
-            if (typeName.startsWith("kotlin.") || typeName.contains("?")) {
+            val isEnhancedData =
+                param.type.resolve().declaration.isAnnotationPresent(EnhancedData::class)
+            if (typeName.startsWith("kotlin.") || typeName.contains("?") || !isEnhancedData) {
                 paramName
             } else {
                 if (typeName in "?") "$paramName.deepCopy()" else "$paramName.deepCopy()"
@@ -198,21 +200,4 @@ class EnhanceVisitor(
         }
     }
 
-    private fun generateComplexClassName(): String {
-        val letters = "abcdefghijklmnopqrstuvwxyz"
-        val numbers = "0123456789"
-        val random = java.util.Random()
-
-        val className = buildString {
-            append("_DeepReCopy_")
-            repeat(10) {
-                val randomLetter = letters[random.nextInt(letters.length)]
-                val randomDigit = numbers[random.nextInt(numbers.length)]
-                append(randomLetter)
-                append(randomDigit)
-            }
-        }
-
-        return className
-    }
 }

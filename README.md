@@ -100,7 +100,6 @@ data class BData(val doc: String, val content: String)
 当对AData和BData顶上注解后我们点击Android Studio的Build。
 
 ```kotlin
-
 data class _ADataCopyFun(
     var name : kotlin.String,
     var title : kotlin.String,
