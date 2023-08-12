@@ -4,7 +4,6 @@ import com.google.devtools.ksp.KspExperimental
 import com.google.devtools.ksp.isAnnotationPresent
 import com.google.devtools.ksp.processing.Dependencies
 import com.google.devtools.ksp.processing.SymbolProcessorEnvironment
-import com.google.devtools.ksp.symbol.KSAnnotated
 import com.google.devtools.ksp.symbol.KSClassDeclaration
 import com.google.devtools.ksp.symbol.KSFile
 import com.google.devtools.ksp.symbol.KSTypeReference
@@ -12,18 +11,18 @@ import com.google.devtools.ksp.symbol.KSValueParameter
 import com.google.devtools.ksp.symbol.KSVisitorVoid
 import com.google.devtools.ksp.symbol.Nullability
 import com.imcys.deeprecopy.an.EnhancedData
-import java.lang.Exception
-
 
 class EnhanceVisitor(
     private val environment: SymbolProcessorEnvironment,
-    private val _deepCopySymbols: Sequence<KSAnnotated>,
 ) : KSVisitorVoid() {
+
+    private val tag = "DeepReCopy->${this::class.simpleName}:"
+    val logger = environment.logger
 
     override fun visitClassDeclaration(classDeclaration: KSClassDeclaration, data: Unit) {
         super.visitClassDeclaration(classDeclaration, data)
 
-        //检查是否能找到主构造函数，找不到就报错
+        // 检查是否能找到主构造函数，找不到就报错
         val primaryConstructor = classDeclaration.primaryConstructor
             ?: throw Exception("error no find primaryConstructor")
 
@@ -32,7 +31,9 @@ class EnhanceVisitor(
         val className = classDeclaration.simpleName.asString()
         val packageName = classDeclaration.packageName.asString()
 
-        //创建KSP生成的文件
+        logger.info("$tag ClassProcessed->$className")
+
+        // 创建KSP生成的文件
         val file = environment.codeGenerator.createNewFile(
             Dependencies(false, classDeclaration.containingFile!!),
             packageName,
@@ -42,11 +43,13 @@ class EnhanceVisitor(
         // 生成扩展函数的代码
         val extensionFunctionCode = generateCode(packageName, className, params)
 
-        //写入生成的代码
+        // 写入生成的代码
         file.write(extensionFunctionCode.toByteArray())
 
-        //释放内存
+        // 释放内存
         file.close()
+
+        logger.info("$tag RunEnd")
     }
 
     override fun visitFile(file: KSFile, data: Unit) {
@@ -61,22 +64,20 @@ class EnhanceVisitor(
         className: String,
         params: List<KSValueParameter>,
     ): String {
-        //生成临时类
+        // 生成临时类
         val complexClassName = "_${className}CopyFun"
         val extensionFunctionCode = buildString {
-
-            //添加包声明
+            // 添加包声明
             appendLine("package $packageName\n\n")
 
-            //新增为DSL写法支持的Data类
+            // 新增为DSL写法支持的Data类
             appendCopyFunDataClassCode(complexClassName, params)
 
-            //新增深拷贝扩展函数代码
+            // 新增深拷贝扩展函数代码
             appendDeepCopyFunCode(className, params)
 
-            //新增DSL写法的深拷贝扩展函数代码
+            // 新增DSL写法的深拷贝扩展函数代码
             appendDSLDeepCodyFunCode(className, complexClassName, params)
-
         }
         return extensionFunctionCode
     }
@@ -87,7 +88,7 @@ class EnhanceVisitor(
     private fun StringBuilder.appendDSLDeepCodyFunCode(
         className: String,
         complexClassName: String,
-        params: List<KSValueParameter>
+        params: List<KSValueParameter>,
     ) {
         appendLine("fun $className.deepCopy(")
         appendLine("    copyFunction:$complexClassName.()->Unit): $className{")
@@ -102,7 +103,7 @@ class EnhanceVisitor(
      */
     private fun StringBuilder.appendDeepCopyFunCode(
         className: String,
-        params: List<KSValueParameter>
+        params: List<KSValueParameter>,
     ) {
         appendLine("fun $className.deepCopy(")
         appendParamsWithDefaultValues(params)
@@ -117,7 +118,7 @@ class EnhanceVisitor(
      */
     private fun StringBuilder.appendCopyFunDataClassCode(
         complexClassName: String,
-        params: List<KSValueParameter>
+        params: List<KSValueParameter>,
     ) {
         appendLine("data class $complexClassName(")
         appendParams(params)
@@ -128,9 +129,7 @@ class EnhanceVisitor(
         params.forEach {
             val paramName = it.name?.getShortName() ?: "Erro"
             val typeName = generateParamsType(it.type)
-            appendLine(
-                "    var $paramName : $typeName,",
-            )
+            appendLine("    var $paramName : $typeName,")
         }
     }
 
@@ -138,13 +137,11 @@ class EnhanceVisitor(
         params.forEach {
             val paramName = it.name?.getShortName() ?: "Erro"
             val typeName = generateParamsType(it.type)
-            val valueCode = if (typeName in "?") "this?.$paramName," else "this.$paramName,"
             appendLine(
-                "    $paramName : $typeName = $valueCode",
+                "    $paramName : $typeName = this.$paramName,",
             )
         }
     }
-
 
     private fun generateParamsType(type: KSTypeReference): String {
         val typeName = StringBuilder(
@@ -164,8 +161,8 @@ class EnhanceVisitor(
                 // 获取类型参数的类型，并尝试解析其声明
                 typeName.append(
                     "${typeArgument.variance.label} ${type?.declaration?.qualifiedName?.asString() ?: "ERROR"}" +
-                            //这里是因为有可能是可空的
-                            if (type?.nullability == Nullability.NULLABLE) "?" else ""
+                            // 这里是因为有可能是可空的
+                            if (type?.nullability == Nullability.NULLABLE) "?" else "",
                 )
             }
             typeName.append(">")
@@ -192,12 +189,12 @@ class EnhanceVisitor(
             val typeName = generateParamsType(param.type)
             val isEnhancedData =
                 param.type.resolve().declaration.isAnnotationPresent(EnhancedData::class)
-            if (typeName.startsWith("kotlin.") || typeName.contains("?") || !isEnhancedData) {
+
+            if (typeName.startsWith("kotlin.") || !isEnhancedData) {
                 paramName
             } else {
-                if (typeName in "?") "$paramName.deepCopy()" else "$paramName.deepCopy()"
+                if (typeName.contains("?")) "$paramName?.deepCopy()" else "$paramName.deepCopy()"
             }
         }
     }
-
 }

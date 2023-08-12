@@ -89,13 +89,13 @@ EnhancedData是用来增强Data类的，现阶段它只有对Data类进行扩展
 
 我们看一则例子：
 
-```kotlin
-@EnhancedData
-data class AData(val name: String, val title: String, val bData: BData)
-
-@EnhancedData
-data class BData(val doc: String, val content: String)
-```
+    ```kotlin
+    @EnhancedData
+    data class AData(val name: String, val title: String, val bData: BData)
+    
+    @EnhancedData
+    data class BData(val doc: String, val content: String)
+    ```
 
 当对AData和BData顶上注解后我们点击Android Studio的Build。
 
@@ -141,8 +141,6 @@ aData = aData.deepCopy {
 以上就是它目前支持的完整用法
 
 ## 特别注意
-目前DeepCopy不支持对可空类型对象进行深拷贝，如果遇到可空类型会直接复制原来的引用，这个问题还在想办法解决。
-
 DeepCopy还在测试阶段，可能会遇到一些意料之外的问题，如果你要使用，请确保符合上面的使用规则，有任何问题可以提issue ❤。
 
 ## 源代码相关

@@ -4,16 +4,13 @@ import com.google.devtools.ksp.processing.Resolver
 import com.google.devtools.ksp.processing.SymbolProcessor
 import com.google.devtools.ksp.processing.SymbolProcessorEnvironment
 import com.google.devtools.ksp.symbol.KSAnnotated
-import com.google.devtools.ksp.symbol.KSAnnotation
 import com.google.devtools.ksp.symbol.KSClassDeclaration
 import com.google.devtools.ksp.validate
-import com.imcys.deeprecopy.an.DeepCopy
 import com.imcys.deeprecopy.an.EnhancedData
 import com.imcys.deeprecopy.compiler.visitor.EnhanceVisitor
 
 class EnhanceDataSymbolProcessor(private val environment: SymbolProcessorEnvironment) :
     SymbolProcessor {
-    private val logger = environment.logger
 
     override fun process(resolver: Resolver): List<KSAnnotated> {
         // 获取由EnhancedData注解类
@@ -23,35 +20,22 @@ class EnhanceDataSymbolProcessor(private val environment: SymbolProcessorEnviron
                     ?: "",
             )
 
-        val deepCopySymbols =
-            resolver.getSymbolsWithAnnotation(
-                DeepCopy::class.qualifiedName
-                    ?: "",
-            )
-
         // 干掉无法处理的类
         val ret = mutableListOf<KSAnnotated>()
         ret.addAll(enhancedDataSymbols.filter { !it.validate() })
-        ret.addAll(deepCopySymbols.filter { !it.validate() })
 
-        // 执行生成
-        logger.info("执行开始")
-        generateDeepCopyClass(enhancedDataSymbols, deepCopySymbols)
-        logger.info("执行完成")
+        generateDeepCopyClass(enhancedDataSymbols)
 
         return ret
     }
 
     private fun generateDeepCopyClass(
         symbols: Sequence<KSAnnotated>,
-        deepCopySymbols: Sequence<KSAnnotated>,
     ) {
         symbols
             .filter { it is KSClassDeclaration && it.validate() } // 检查是否为Data类
             .forEach {
-                it.accept(EnhanceVisitor(environment, deepCopySymbols), Unit)
+                it.accept(EnhanceVisitor(environment), Unit)
             }
     }
-
-
 }
