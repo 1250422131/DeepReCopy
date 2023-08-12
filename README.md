@@ -11,7 +11,7 @@
 
 ## 它可以做什么
 
-DeepReCopy是针对Kotlin的Data类所开发的深度拷贝库，利用KSP动态生成深度拷贝扩展方法，支持DSL写法。
+DeepReCopy是针对Kotlin的Data类所开发的深度拷贝功能库，利用KSP可以生成Data类的深度拷贝扩展方法，支持DSL写法。
 
 ## 如何使用
 
