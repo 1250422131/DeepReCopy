@@ -4,10 +4,12 @@ import com.google.devtools.ksp.processing.Dependencies
 import com.google.devtools.ksp.processing.SymbolProcessorEnvironment
 import com.google.devtools.ksp.symbol.KSAnnotated
 import com.google.devtools.ksp.symbol.KSClassDeclaration
+import com.google.devtools.ksp.symbol.KSFile
 import com.google.devtools.ksp.symbol.KSTypeReference
 import com.google.devtools.ksp.symbol.KSValueParameter
 import com.google.devtools.ksp.symbol.KSVisitorVoid
 import com.google.devtools.ksp.symbol.Nullability
+import java.io.File
 
 class EnhanceVisitor(
     private val environment: SymbolProcessorEnvironment,
@@ -24,7 +26,7 @@ class EnhanceVisitor(
         val packageName = classDeclaration.packageName.asString()
 
         val file = environment.codeGenerator.createNewFile(
-            Dependencies(true, classDeclaration.containingFile!!),
+            Dependencies(false, classDeclaration.containingFile!!),
             packageName,
             "${className}Enhance",
         )
@@ -34,6 +36,10 @@ class EnhanceVisitor(
 
         file.write(extensionFunctionCode.toByteArray())
         file.close()
+    }
+
+    override fun visitFile(file: KSFile, data: Unit) {
+        file.declarations.forEach { it.accept(this, Unit) }
     }
 
     private fun generateCode(
@@ -94,16 +100,7 @@ class EnhanceVisitor(
             // 类型为标准类型
             if (typeName in "?") "this?.$paramName" else "this.$paramName"
         } else {
-            val newParamCode = getNewParamCode(paramName, typeName)
-            if (newParamCode.isNullOrBlank()) {
-                if (typeName in "?") "this?.$paramName" else "this.$paramName"
-            } else {
-                val tmpTypeName = typeName.replace("?", "")
-                    .replace("<", "")
-                    .replace(">", "")
-
-                "$tmpTypeName($newParamCode)" // new xxx()
-            }
+            if (typeName in "?") "this?.$paramName.deepCopy()" else "this.$paramName.deepCopy()"
         }
     }
 
@@ -111,9 +108,12 @@ class EnhanceVisitor(
      * 组装一个参数的new XXXX()
      */
     private fun getNewParamCode(fParamName: String, typeName: String): String {
+        val classList = java.lang.StringBuilder("")
+
         deepCopySymbols.forEach {
             val classDeclaration = it as? KSClassDeclaration
             val classQualifiedName = classDeclaration?.qualifiedName?.asString() ?: ""
+
 
             if (classQualifiedName == typeName) {
                 val params = classDeclaration?.primaryConstructor?.parameters
@@ -134,7 +134,7 @@ class EnhanceVisitor(
                             )
                         }
                     } ?: apply {
-                        return ""
+                        return "3"
                     }
                 }
 
@@ -142,7 +142,9 @@ class EnhanceVisitor(
             }
         }
 
-        return ""
+        classList.append(deepCopySymbols.toMutableList().size)
+
+        return classList.toString()
     }
 
     private fun generateParamsType(type: KSTypeReference): String {
@@ -163,7 +165,7 @@ class EnhanceVisitor(
                     val type = typeArgument.type?.resolve()
                     // 获取类型参数的类型，并尝试解析其声明
                     "${typeArgument.variance.label} ${type?.declaration?.qualifiedName?.asString() ?: "ERROR"}" +
-                        if (type?.nullability == Nullability.NULLABLE) "?" else ""
+                            if (type?.nullability == Nullability.NULLABLE) "?" else ""
                     // 构建类型参数的字符串表示形式，包括协变/逆变标记和类型参数的完全限定名称
                 },
             )
@@ -185,12 +187,13 @@ class EnhanceVisitor(
 
     private fun getReturn(params: List<KSValueParameter>): String {
         return params.joinToString(", ") { param ->
+
             val paramName = param.name?.getShortName() ?: "Error"
             val typeName = generateParamsType(param.type)
-            if (typeName.startsWith("kotlin.")) {
+            if (typeName.startsWith("kotlin.") || typeName.contains("?")) {
                 paramName
             } else {
-                "$typeName(${getNewParamCode(paramName, typeName)})".replace("this.", "")
+                if (typeName in "?") "$paramName.deepCopy()" else "$paramName.deepCopy()"
             }
         }
     }

@@ -80,8 +80,8 @@ fun S.update(content: S.() -> S) {
 
 ### 认识DeepReCopy注解
 
-DeepReCopy现阶段提供了两个注解，分别是`EnhancedData`和`DeepCopy`
-，分别用来注解Data类和需要被深拷贝的Class类，后者通常是Data类里要用到的对象。
+DeepReCopy现阶段提供了一个注解，`EnhancedData`和未实现的计划注解`DeepCopy`
+，分别用来注解Data类和需要被深拷贝的Class类，后者通常是需要深拷贝的非Data类，导入你现在可以直接给非Data类注解@EnhancedData，但是不确定是否有意料之外的问题。
 
 让我们试试看？
 
@@ -93,26 +93,29 @@ EnhancedData是用来增强Data类的，现阶段它只有对Data类进行扩展
 @EnhancedData
 data class AData(val name: String, val title: String, val bData: BData)
 
-@DeepCopy
+@EnhancedData
 data class BData(val doc: String, val content: String)
 ```
 
 当对AData和BData顶上注解后我们点击Android Studio的Build。
 
 ```kotlin
+
 data class _ADataCopyFun(
     var name : kotlin.String,
     var title : kotlin.String,
     var bData : com.imcys.deeprecopy.demo.BData,
 )
 
+
 fun AData.deepCopy(
     name : kotlin.String = this.name,
     title : kotlin.String = this.title,
     bData : com.imcys.deeprecopy.demo.BData = this.bData,
 ): AData {
-    return AData(name, title, com.imcys.deeprecopy.demo.BData(doc = bData.doc, content = bData.content))
+    return AData(name, title, bData.deepCopy())
 }
+
 
 fun AData.deepCopy(
     copyFunction:_ADataCopyFun.()->Unit): AData{
@@ -121,8 +124,9 @@ fun AData.deepCopy(
     return this.deepCopy(copyData.name, copyData.title, copyData.bData)
 }
 
+
 ```
-其中@EnhancedData是注解需要扩展深拷贝函数的Data类，而@DeepCopy则是为了让Data类中的对象被深拷贝。
+其中@EnhancedData是注解需要扩展深拷贝函数的Data类，其中因为BData也在AData中，所以也需要给BData注解EnhancedData。
 这是生成后的数据类，事实上，我们发现deepCopy重新返回了一个新的AData，同时，bData也被重新new了一个出来，这就确保了内部对象确实发生了改变。
 
 ```kotlin
@@ -140,7 +144,7 @@ aData = aData.deepCopy {
 ## 特别注意
 目前DeepCopy不支持对可空类型对象进行深拷贝，如果遇到可空类型会直接复制原来的引用，这个问题还在想办法解决。
 
-DeepCopy还在测试阶段，可能会遇到一些意料之外的问题，如果你要使用，请确保符合上面的使用规则，有任何问题可以提issue ❤
+DeepCopy还在测试阶段，可能会遇到一些意料之外的问题，如果你要使用，请确保符合上面的使用规则，有任何问题可以提issue ❤。
 
 ## 源代码相关
 DeepCopy源代码仍然在整理，它现在会比较乱。

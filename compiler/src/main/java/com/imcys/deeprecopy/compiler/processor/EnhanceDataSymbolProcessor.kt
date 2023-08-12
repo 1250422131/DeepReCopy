@@ -4,6 +4,7 @@ import com.google.devtools.ksp.processing.Resolver
 import com.google.devtools.ksp.processing.SymbolProcessor
 import com.google.devtools.ksp.processing.SymbolProcessorEnvironment
 import com.google.devtools.ksp.symbol.KSAnnotated
+import com.google.devtools.ksp.symbol.KSAnnotation
 import com.google.devtools.ksp.symbol.KSClassDeclaration
 import com.google.devtools.ksp.validate
 import com.imcys.deeprecopy.an.DeepCopy
@@ -30,7 +31,8 @@ class EnhanceDataSymbolProcessor(private val environment: SymbolProcessorEnviron
 
         // 干掉无法处理的类
         val ret = mutableListOf<KSAnnotated>()
-        ret.addAll(enhancedDataSymbols.filter { !it.validate() }.toList())
+        ret.addAll(enhancedDataSymbols.filter { !it.validate() })
+        ret.addAll(deepCopySymbols.filter { !it.validate() })
 
         // 执行生成
         logger.info("执行开始")
@@ -39,6 +41,7 @@ class EnhanceDataSymbolProcessor(private val environment: SymbolProcessorEnviron
 
         return ret
     }
+
     private fun generateDeepCopyClass(
         symbols: Sequence<KSAnnotated>,
         deepCopySymbols: Sequence<KSAnnotated>,
@@ -49,4 +52,6 @@ class EnhanceDataSymbolProcessor(private val environment: SymbolProcessorEnviron
                 it.accept(EnhanceVisitor(environment, deepCopySymbols), Unit)
             }
     }
+
+
 }
