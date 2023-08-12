@@ -6,7 +6,7 @@ plugins {
 }
 
 group = "com.imcys.deeprecopy"
-version = "0.0.1Alpha-04"
+version = "0.0.1Alpha-05"
 
 java {
     sourceCompatibility = JavaVersion.VERSION_17
