@@ -15,23 +15,6 @@ DeepReCopy是针对Kotlin的Data类所开发的深度拷贝功能库，利用KSP
 
 ## 如何使用
 
-### 仓库引入
-
-请在你的`settings.gradle.kts`中的`repositories`中添加下面的仓库。
-如果你是普通的gradle脚本，那么请用下面这个groovy版本
-
-```groovy
-maven { url 'https://jitpack.io' }
-``` 
-
-如果你是kts扩展脚本，那么可以使用kotlin版本
-
-```kotlin
-maven {
-    setUrl("https://jitpack.io")
-}
-```
-
 ### 库的引入
 由于项目使用了KSP，需要在脚本顶部添加KSP插件，在每个使用KSP的模块都需要哦。
 groovy
