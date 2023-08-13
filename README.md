@@ -33,14 +33,24 @@ maven {
 ```
 
 ### 库的引入
-
+由于项目使用了KSP，需要在脚本顶部添加KSP插件，在每个使用KSP的模块都需要哦。
+groovy
 ```groovy
-implementation 'com.github.1250422131.DeepReCopy:core:<version>'
-ksp 'com.github.1250422131.DeepReCopy:compiler:<version>'
+plugins {
+    id 'com.google.devtools.ksp' version '1.9.0-1.0.11'
+}
+
+implementation 'com.imcys.deeprecopy:core:<version>'
+ksp 'com.imcys.deeprecopy:compiler:<version>'
 ```
+kts
 ```kotlin
-implementation("com.github.1250422131.DeepReCopy:core:<version>")
-ksp("com.github.1250422131.DeepReCopy:compiler:<version>")
+plugins {
+    id("com.google.devtools.ksp") version "1.9.0-1.0.11"
+}
+
+implementation("com.imcys.deeprecopy:core:<version>")
+ksp("com.imcys.deeprecopy:compiler:<version>")
 ```
 
 ## 为什么要深拷贝
