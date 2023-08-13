@@ -56,6 +56,20 @@ publishing {
                         email.value(PUBLISH_EMAIL)
                     }
                 }
+
+                scm {
+                    connection.set("scm:git:https://github.com/1250422131/DeepReCopy.git")
+                    developerConnection.set("scm:git:https://github.com/1250422131/DeepReCopy.git")
+                    url.set("https://github.com/1250422131/DeepReCopy")
+                }
+
+                licenses {
+                    license {
+                        name.set("Apache License 2.0")
+                        url.set("https://www.apache.org/licenses/LICENSE-2.0")
+                        distribution.set("repo")
+                    }
+                }
             }
         }
     }
