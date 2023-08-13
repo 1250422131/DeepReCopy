@@ -157,20 +157,19 @@ class EnhanceVisitor(
             // 检查类型参数列表是否非空
             typeName.append("<")
             typeArgs.forEach { typeArgument ->
-                val type = typeArgument.type?.resolve()
+                val mType = typeArgument.type?.resolve()
                 // 获取类型参数的类型，并尝试解析其声明
                 typeName.append(
-                    "${typeArgument.variance.label} ${type?.declaration?.qualifiedName?.asString() ?: "ERROR"}" +
+                    "${typeArgument.variance.label} ${mType?.declaration?.qualifiedName?.asString() ?: "ERROR"}" +
                             // 这里是因为有可能是可空的
-                            if (type?.nullability == Nullability.NULLABLE) "?" else "",
+                            if (mType?.nullability == Nullability.NULLABLE) "?" else "",
                 )
             }
             typeName.append(">")
         }
 
         // 如果类型可空，那么就在后面加上?
-        val mType = type.resolve()
-        typeName.append(if (mType.nullability == Nullability.NULLABLE) "?" else "")
+        typeName.append(if (type.resolve().nullability == Nullability.NULLABLE) "?" else "")
 
         return typeName.toString()
     }

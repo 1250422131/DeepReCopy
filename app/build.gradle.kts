@@ -52,7 +52,6 @@ android {
     }
 }
 
-
 kotlin {
     jvmToolchain(17)
     sourceSets.main {
@@ -63,9 +62,8 @@ kotlin {
     }
 }
 
-
 dependencies {
-    compileOnly(project(":core"))
+    implementation(project(":core"))
     ksp(project(":compiler"))
     implementation(libs.core.ktx)
     implementation(libs.lifecycle.runtime.ktx)
