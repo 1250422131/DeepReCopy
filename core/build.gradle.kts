@@ -9,7 +9,7 @@ plugins {
 }
 
 group = "com.imcys.deeprecopy"
-version = "0.0.1Alpha-05"
+version = "0.0.1Alpha-06"
 
 java {
     sourceCompatibility = JavaVersion.VERSION_17
@@ -27,7 +27,7 @@ val PUBLISH_GROUP_ID: String = gradleLocalProperties(rootDir).getProperty("PUBLI
 val PUBLISH_EMAIL: String = gradleLocalProperties(rootDir).getProperty("PUBLISH_EMAIL")
 
 group = "com.imcys.deeprecopy"
-version = "0.0.1Alpha-05"
+version = "0.0.1Alpha-06"
 
 java {
     sourceCompatibility = JavaVersion.VERSION_17
@@ -41,7 +41,7 @@ publishing {
         create<MavenPublication>("maven") {
             artifactId = "core"
             groupId = "com.imcys.deeprecopy"
-            version = "0.0.1Alpha-05"
+            version = "0.0.1Alpha-06"
 
             pom {
                 name.value("DeepReCopy")
