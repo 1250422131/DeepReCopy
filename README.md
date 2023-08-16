@@ -15,30 +15,23 @@ DeepReCopy是针对Kotlin的Data类所开发的深度拷贝功能库，利用KSP
 
 ## 如何使用
 
-### 仓库引入
-
-请在你的`settings.gradle.kts`中的`repositories`中添加下面的仓库。
-如果你是普通的gradle脚本，那么请用下面这个groovy版本
-
-```groovy
-maven { url 'https://jitpack.io' }
-``` 
-
-如果你是kts扩展脚本，那么可以使用kotlin版本
-
-```kotlin
-maven {
-    setUrl("https://jitpack.io")
-}
-```
-
 ### 库的引入
-
+由于项目使用了KSP，需要在脚本顶部添加KSP插件，在每个使用KSP的模块都需要哦。
+groovy
 ```groovy
-implementation 'com.github.1250422131.DeepReCopy:core:<version>'
-ksp 'com.github.1250422131.DeepReCopy:compiler:<version>'
+plugins {
+    id 'com.google.devtools.ksp' version '1.9.0-1.0.11'
+}
+
+implementation 'com.imcys.deeprecopy:core:<version>'
+ksp 'com.imcys.deeprecopy:compiler:<version>'
 ```
+kts
 ```kotlin
+plugins {
+    id("com.google.devtools.ksp") version "1.9.0-1.0.11"
+}
+
 implementation("com.github.1250422131.DeepReCopy:core:<version>")
 ksp("com.github.1250422131.DeepReCopy:compiler:<version>")
 ```
@@ -89,13 +82,13 @@ EnhancedData是用来增强Data类的，现阶段它只有对Data类进行扩展
 
 我们看一则例子：
 
-    ```kotlin
+```kotlin
     @EnhancedData
     data class AData(val name: String, val title: String, val bData: BData)
     
     @EnhancedData
     data class BData(val doc: String, val content: String)
-    ```
+```
 
 当对AData和BData顶上注解后我们点击Android Studio的Build。
 
