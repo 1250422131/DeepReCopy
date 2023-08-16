@@ -32,8 +32,8 @@ plugins {
     id("com.google.devtools.ksp") version "1.9.0-1.0.11"
 }
 
-implementation("com.imcys.deeprecopy:core:<version>")
-ksp("com.imcys.deeprecopy:compiler:<version>")
+implementation("com.github.1250422131.DeepReCopy:core:<version>")
+ksp("com.github.1250422131.DeepReCopy:compiler:<version>")
 ```
 
 ## 为什么要深拷贝
@@ -82,13 +82,13 @@ EnhancedData是用来增强Data类的，现阶段它只有对Data类进行扩展
 
 我们看一则例子：
 
-    ```kotlin
+```kotlin
     @EnhancedData
     data class AData(val name: String, val title: String, val bData: BData)
     
     @EnhancedData
     data class BData(val doc: String, val content: String)
-    ```
+```
 
 当对AData和BData顶上注解后我们点击Android Studio的Build。
 
