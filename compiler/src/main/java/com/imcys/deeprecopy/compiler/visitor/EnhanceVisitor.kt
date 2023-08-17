@@ -108,6 +108,8 @@ class EnhanceVisitor(
         appendLine("fun $className.deepCopy(")
         appendParamsWithDefaultValues(params)
         appendLine("): $className {")
+        //生成MutableList深拷贝：如果有
+        appendLine(getMutableListDeepCopyCode(params))
         appendLine("    return $className(${getReturn(params)})")
         appendLine("}\n\n")
     }
@@ -190,21 +192,12 @@ class EnhanceVisitor(
             val isEnhancedData =
                 mType.resolve().declaration.isAnnotationPresent(EnhancedData::class)
 
-            var isArrayClass = false
-            var isListClass = false
             var isMutableListClass = false
-
 
             //检查是不是Array，因为它不可变
             (mType.resolve().declaration as? KSClassDeclaration)?.apply {
                 for (superType in superTypes) {
                     val superClassType = generateParamsType(superType)
-                    if (superClassType.contains("kotlin.Array")) {
-                        isArrayClass = true
-                        break
-                    } else if (superClassType.contains("kotlin.collections.List")) {
-                        isListClass = true
-                    }
                     if (superClassType.contains("kotlin.collections.MutableList")) {
                         isMutableListClass = true
                         break
@@ -212,9 +205,9 @@ class EnhanceVisitor(
                 }
             }
 
-
-
-            if (isArrayClass || isListClass && !isMutableListClass || typeName.startsWith("kotlin.") || !isEnhancedData) {
+            if (isMutableListClass) {
+                "new${paramName}MutableList"
+            } else if (typeName.startsWith("kotlin.") || !isEnhancedData) {
                 paramName
             } else {
                 if (typeName.contains("?")) "$paramName?.deepCopy()" else "$paramName.deepCopy()"
@@ -222,30 +215,84 @@ class EnhanceVisitor(
         }
     }
 
-    private fun getMutableListDeepCopyCode(param: KSValueParameter): String {
-        return """
-            val oldMutableList = paramName
-            val newMutableList = mutableList<${generateParamsType(param.type)}>()
-            ${getMutableListForeachDeepCopyCode(param.type)}
-        """.trimIndent()
+    /**
+     * 生成MutableList深拷贝：如果有MutableList类型参数的话
+     */
+    private fun getMutableListDeepCopyCode(params: List<KSValueParameter>): String {
+        val code = StringBuilder("")
+
+        params.forEach { param ->
+            val paramName = param.name?.getShortName() ?: "Error"
+            val typeName = generateParamsType(param.type)
+            val mType = param.type
+
+            var isMutableListClass = false
+
+
+            //检查是不是Array，因为它不可变
+            (mType.resolve().declaration as? KSClassDeclaration)?.apply {
+                for (superType in superTypes) {
+                    val superClassType = generateParamsType(superType)
+                    if (superClassType.contains("kotlin.collections.MutableList")) {
+                        isMutableListClass = true
+                        break
+                    }
+                }
+            }
+
+            if (isMutableListClass) {
+                val typeArgs = mType.element!!.typeArguments
+                val typeArgsType = typeArgs[0].type!!
+                val mTypeName = generateParamsType(typeArgsType)
+
+                val newListIsNullTypeCode = if (typeName.contains("?")) {
+                    ": MutableList<$mTypeName>?"
+                } else ""
+                code.appendLine(
+                    """
+                            val old${paramName}MutableList = $paramName
+                            var new${paramName}MutableList $newListIsNullTypeCode = mutableListOf<${mTypeName}>()
+                        ${getMutableListForeachDeepCopyCode(typeArgsType, paramName, typeName)}
+                    """.trimIndent()
+                )
+            }
+
+        }
+
+        return code.toString()
     }
 
+    /**
+     * 生成MutableList深拷贝的核心内容
+     */
     @OptIn(KspExperimental::class)
     private fun getMutableListForeachDeepCopyCode(
         type: KSTypeReference,
-    ): String {
+        paramName: String,
+        listTypeName: String,
+
+        ): String {
+
         val isEnhancedData =
             type.resolve().declaration.isAnnotationPresent(EnhancedData::class)
-        return if (isEnhancedData) """
-            newMutableList =  oldMutableList.toMutableList()
-        """.trimIndent() else {
-            """
-                oldMutableList.foreach{
-                    it.deepCopy()
-                }
-            """.trimIndent()
-        }
+        val newMutableListName = "new${paramName}MutableList"
+        val oldMutableListName = "old${paramName}MutableList"
 
+        val typeName = generateParamsType(type)
+        //这里说的是MutableList<E> 中 MutableList<E>是不是可空
+        val addCopyCode = if (typeName.contains("?")) "it?.deepCopy()" else "it.deepCopy()"
+        return if (listTypeName.contains("?")) {
+            //这里说的是MutableList<E> 中 E是不是可空
+            //MutableList可空
+            if (isEnhancedData) "    $newMutableListName  =  $oldMutableListName?.toMutableList()" else {
+                "    $oldMutableListName?.forEach{$newMutableListName.add($addCopyCode)}"
+            }
+        } else {
+            //MutableList不可空
+            if (isEnhancedData) "    $newMutableListName =  $oldMutableListName.toMutableList()" else {
+                "    $oldMutableListName.forEach{$newMutableListName.add($addCopyCode)}"
+            }
+        }
 
     }
 }
