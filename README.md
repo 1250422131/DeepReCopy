@@ -3,7 +3,7 @@
     
 # DeepReCopy
 
-[![](https://jitpack.io/v/1250422131/DeepReCopy.svg)](https://jitpack.io/#1250422131/DeepReCopy)
+![Maven Central](https://img.shields.io/maven-central/v/com.imcys.deeprecopy/core)
 ![GitHub](https://img.shields.io/github/license/1250422131/bilibilias)
 [![Kotlin](https://img.shields.io/badge/kotlin-1.8.10-blue.svg?logo=kotlin)](http://kotlinlang.org)
 
@@ -17,6 +17,7 @@ DeepReCopy是针对Kotlin的Data类所开发的深度拷贝功能库，利用KSP
 
 ### 库的引入
 由于项目使用了KSP，需要在脚本顶部添加KSP插件，在每个使用KSP的模块都需要哦。
+DeepReCopy已经在Maven中央仓库提交，不需要额外导入其他仓库，可以直接按下面配置，最新版本号以本文件顶部Maven Central拉取结果版本号为准。
 groovy
 ```groovy
 plugins {
@@ -32,8 +33,8 @@ plugins {
     id("com.google.devtools.ksp") version "1.9.0-1.0.11"
 }
 
-implementation("com.github.1250422131.DeepReCopy:core:<version>")
-ksp("com.github.1250422131.DeepReCopy:compiler:<version>")
+implementation("com.imcys.deeprecopy:core:<version>")
+ksp("com.imcys.deeprecopy:compiler:<version>")
 ```
 
 ## 为什么要深拷贝
