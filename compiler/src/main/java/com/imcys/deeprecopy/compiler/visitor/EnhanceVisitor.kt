@@ -186,14 +186,66 @@ class EnhanceVisitor(
         return params.joinToString(", ") { param ->
             val paramName = param.name?.getShortName() ?: "Error"
             val typeName = generateParamsType(param.type)
+            val mType = param.type
             val isEnhancedData =
-                param.type.resolve().declaration.isAnnotationPresent(EnhancedData::class)
+                mType.resolve().declaration.isAnnotationPresent(EnhancedData::class)
 
-            if (typeName.startsWith("kotlin.") || !isEnhancedData) {
+            var isArrayClass = false
+            var isListClass = false
+            var isMutableListClass = false
+
+
+            //检查是不是Array，因为它不可变
+            (mType.resolve().declaration as? KSClassDeclaration)?.apply {
+                for (superType in superTypes) {
+                    val superClassType = generateParamsType(superType)
+                    if (superClassType.contains("kotlin.Array")) {
+                        isArrayClass = true
+                        break
+                    } else if (superClassType.contains("kotlin.collections.List")) {
+                        isListClass = true
+                    }
+                    if (superClassType.contains("kotlin.collections.MutableList")) {
+                        isMutableListClass = true
+                        break
+                    }
+                }
+            }
+
+
+
+            if (isArrayClass || isListClass && !isMutableListClass || typeName.startsWith("kotlin.") || !isEnhancedData) {
                 paramName
             } else {
                 if (typeName.contains("?")) "$paramName?.deepCopy()" else "$paramName.deepCopy()"
             }
         }
+    }
+
+    private fun getMutableListDeepCopyCode(param: KSValueParameter): String {
+        return """
+            val oldMutableList = paramName
+            val newMutableList = mutableList<${generateParamsType(param.type)}>()
+            ${getMutableListForeachDeepCopyCode(param.type)}
+        """.trimIndent()
+    }
+
+    @OptIn(KspExperimental::class)
+    private fun getMutableListForeachDeepCopyCode(
+        type: KSTypeReference,
+    ): String {
+        val isEnhancedData =
+            type.resolve().declaration.isAnnotationPresent(EnhancedData::class)
+        return if (isEnhancedData) """
+            newMutableList =  oldMutableList.toMutableList()
+        """.trimIndent() else {
+            """
+                oldMutableList.foreach{
+                    it.deepCopy()
+                }
+            """.trimIndent()
+        }
+
+
     }
 }

@@ -11,17 +11,26 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
+import com.imcys.deeprecopy.an.EnhancedData
 import com.imcys.deeprecopy.demo.AData
 import com.imcys.deeprecopy.demo.BData
 import com.imcys.deeprecopy.demo.deepCopy
 import com.imcys.deeprecopy.ui.theme.DeepReCopyTheme
 
 class MainActivity : ComponentActivity() {
+
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
 
         setContent {
+            val a = listOf("aaa", "aaa")
+            //EmptyList
+            val v = arrayOf("")
+            val aa = mutableListOf("").toMutableList()
+
+
             DeepReCopyTheme {
                 // A surface container using the 'background' color from the theme
                 Surface(

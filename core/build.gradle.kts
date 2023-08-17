@@ -9,7 +9,7 @@ plugins {
 }
 
 group = "com.imcys.deeprecopy"
-version = "0.0.1Alpha-06"
+version = "0.0.1-Alpha-09"
 
 java {
     sourceCompatibility = JavaVersion.VERSION_17
@@ -27,7 +27,7 @@ val PUBLISH_GROUP_ID: String = gradleLocalProperties(rootDir).getProperty("PUBLI
 val PUBLISH_EMAIL: String = gradleLocalProperties(rootDir).getProperty("PUBLISH_EMAIL")
 
 group = "com.imcys.deeprecopy"
-version = "0.0.1Alpha-06"
+version = "0.0.1-Alpha-09"
 
 java {
     sourceCompatibility = JavaVersion.VERSION_17
@@ -41,7 +41,12 @@ publishing {
         create<MavenPublication>("maven") {
             artifactId = "core"
             groupId = "com.imcys.deeprecopy"
-            version = "0.0.1Alpha-06"
+            version = "0.0.1-Alpha-09"
+
+
+            // 配置额外的 artifact，如 javadocJar 和 sourcesJar
+            from(components["java"])
+
 
             pom {
                 name.value("DeepReCopy")
@@ -75,8 +80,15 @@ publishing {
     }
 
     repositories {
+
         maven {
-            url = uri("https://s01.oss.sonatype.org/service/local/staging/deploy/maven2/")
+            val releasesRepoUrl =
+                "https://s01.oss.sonatype.org/service/local/staging/deploy/maven2/"
+            val snapshotsRepoUrl = "https://s01.oss.sonatype.org/content/repositories/snapshots/"
+
+            url = uri(
+                if (version.toString().endsWith("SNAPSHOT")) snapshotsRepoUrl else releasesRepoUrl
+            )
             credentials {
                 // 你的sonatype账号
                 username = ossrhUsername
