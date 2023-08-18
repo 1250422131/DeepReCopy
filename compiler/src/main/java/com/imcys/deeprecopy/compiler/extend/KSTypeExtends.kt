@@ -83,11 +83,11 @@ fun KSTypeReference.fullyQualifiedTypeName(): String {
         // 获取参数的类型名称，如果获取失败，则使用 "<ERROR>"
     )
 
-    val typeArgs = element!!.typeArguments
+    val typeArgs = element?.typeArguments
     // 获取参数的类型参数列表
 
     // 可能存在泛型的情况,需要解析泛型
-    if (element!!.typeArguments.isNotEmpty()) {
+    if (!typeArgs.isNullOrEmpty()) {
         // 检查类型参数列表是否非空
         typeName.append("<")
         typeArgs.forEach { typeArgument ->
