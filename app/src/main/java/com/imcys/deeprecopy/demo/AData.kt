@@ -6,5 +6,5 @@ import com.imcys.deeprecopy.an.EnhancedData
 data class AData(
     val name: String,
     val title: String,
-    val bDatas: MutableList<BData>,
+    val bData: BData,
 )

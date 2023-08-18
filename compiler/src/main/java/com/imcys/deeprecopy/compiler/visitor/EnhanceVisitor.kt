@@ -9,8 +9,12 @@ import com.google.devtools.ksp.symbol.KSFile
 import com.google.devtools.ksp.symbol.KSTypeReference
 import com.google.devtools.ksp.symbol.KSValueParameter
 import com.google.devtools.ksp.symbol.KSVisitorVoid
-import com.google.devtools.ksp.symbol.Nullability
 import com.imcys.deeprecopy.an.EnhancedData
+import com.imcys.deeprecopy.compiler.extend.fullyQualifiedNonInclusiveGenericsTypeName
+import com.imcys.deeprecopy.compiler.extend.fullyQualifiedTypeName
+import com.imcys.deeprecopy.compiler.extend.isArrayType
+import com.imcys.deeprecopy.compiler.extend.isListButNotMutableListType
+import com.imcys.deeprecopy.compiler.extend.isMutableListType
 
 class EnhanceVisitor(
     private val environment: SymbolProcessorEnvironment,
@@ -68,34 +72,48 @@ class EnhanceVisitor(
         // 生成临时类
         val complexClassName = "_${className}CopyFun"
 
+        // 临时类参数构建
         val classParamsString = params.joinToString(separator = "\n" + "\t".repeat(3)) {
             val paramName = it.name?.getShortName() ?: "Error"
-            val typeName = generateParamsType(it.type)
+            val typeName = it.type.fullyQualifiedTypeName()
             "var $paramName: $typeName, "
         }
 
+        // 深拷贝函数参数构建
         val funParamsString = params.joinToString(separator = "\n" + "\t".repeat(3)) {
             val paramName = it.name?.getShortName() ?: "Error"
-            val typeName = generateParamsType(it.type)
+            val typeName = it.type.fullyQualifiedTypeName()
             "$paramName: $typeName = this.$paramName, "
         }
-
+        // 深拷贝函数返回参数构建
         val deepCopyParamsString = params.joinToString(", ") { param ->
             val paramName = param.name?.getShortName() ?: "Error"
-            val typeName = generateParamsType(param.type)
+            val mType = param.type
+
+            val typeName = mType.fullyQualifiedTypeName()
+            // 封装过了
             val isEnhancedData =
-                param.type.resolve().declaration.isAnnotationPresent(EnhancedData::class)
-            if (typeName.startsWith("kotlin.") || !isEnhancedData) {
+                mType.resolve().declaration.isAnnotationPresent(EnhancedData::class)
+
+            // 有待改进写法
+            if (mType.isListButNotMutableListType()) {
+                "new${paramName}MutableList.toList()"
+            } else if (mType.isMutableListType()) {
+                "new${paramName}MutableList"
+            } else if (mType.isArrayType()) {
+                "new${paramName}MutableList.toTypedArray()"
+            } else if (typeName.startsWith("kotlin.") || !isEnhancedData) {
                 paramName
             } else {
                 if (typeName.contains("?")) "$paramName?.deepCopy()" else "$paramName.deepCopy()"
             }
         }
 
+        // DSL写法函数参数构建
         val deepCopyDSLParamsString = params.joinToString(", ") {
             it.name?.getShortName() ?: "Error"
         }
-
+        // DSL写法函数输出参数构建
         val copyDataParamsString = params.joinToString(", ") {
             "copyData.${it.name?.getShortName() ?: "Error"}"
         }
@@ -136,40 +154,6 @@ class EnhanceVisitor(
         }
     }*/
 
-    private fun generateParamsType(type: KSTypeReference): String {
-        val typeName = StringBuilder(
-            type.resolve().declaration.qualifiedName?.asString() ?: "ERROR",
-            // 获取参数的类型名称，如果获取失败，则使用 "<ERROR>"
-        )
-
-        val typeArgs = type.element!!.typeArguments
-        // 获取参数的类型参数列表
-
-        // 可能存在泛型的情况,需要解析泛型
-        if (type.element!!.typeArguments.isNotEmpty()) {
-            // 检查类型参数列表是否非空
-            typeName.append("<")
-            typeArgs.forEach { typeArgument ->
-                val mType = typeArgument.type?.resolve()
-                // 获取类型参数的类型，并尝试解析其声明
-                typeName.append(
-                    "${typeArgument.variance.label} ${mType?.declaration?.qualifiedName?.asString() ?: "ERROR"}" +
-                            // 这里是因为有可能是可空的
-                            if (mType?.nullability == Nullability.NULLABLE) "?" else "",
-                )
-            }
-            typeName.append(">")
-        }
-
-        // 如果类型可空，那么就在后面加上?
-        typeName.append(if (type.resolve().nullability == Nullability.NULLABLE) "?" else "")
-        /*
-                //如果是kotlin自带的类型，去除前缀
-                if(typeName.startsWith("kotlin.")) typeName.deleteRange(0,7)*/
-
-        return typeName.toString()
-    }
-
     /**
      * 生成MutableList深拷贝：如果有MutableList类型参数的话
      */
@@ -178,40 +162,38 @@ class EnhanceVisitor(
 
         params.forEach { param ->
             val paramName = param.name?.getShortName() ?: "Error"
-            val typeName = generateParamsType(param.type)
+            // 每个属性的类型
             val mType = param.type
 
-            var isMutableListClass = false
+            val isMutableListClass = mType.isMutableListType()
+            val isList = mType.isListButNotMutableListType()
+            val isArray = mType.isArrayType()
 
+            if (isMutableListClass || isList || isArray) {
+                val genericsArgs = mType.element!!.typeArguments
+                val genericsArgsType = genericsArgs[0].type!!
+                // list类型
+                val mTypeName = mType.fullyQualifiedTypeName()
+                val genericsArgsTypeName = genericsArgsType.fullyQualifiedTypeName()
 
-            //检查是不是Array，因为它不可变
-            (mType.resolve().declaration as? KSClassDeclaration)?.apply {
-                for (superType in superTypes) {
-                    val superClassType = generateParamsType(superType)
-                    if (superClassType.contains("kotlin.collections.MutableList")) {
-                        isMutableListClass = true
-                        break
+                val oldMutableListCode = if (isMutableListClass) {
+                    paramName
+                } else {
+                    val listTypeName = mType.fullyQualifiedNonInclusiveGenericsTypeName()
+                    if (listTypeName.contains("?")) {
+                        "$paramName?.toMutableList()"
+                    } else {
+                        "$paramName.toMutableList()"
                     }
                 }
-            }
-
-            if (isMutableListClass) {
-                val typeArgs = mType.element!!.typeArguments
-                val typeArgsType = typeArgs[0].type!!
-                val mTypeName = generateParamsType(typeArgsType)
-
-                val newListIsNullTypeCode = if (typeName.contains("?")) {
-                    ": MutableList<$mTypeName>?"
-                } else ""
                 code.appendLine(
                     """
-                    val old${paramName}MutableList = $paramName
-                    var new${paramName}MutableList $newListIsNullTypeCode = mutableListOf<${mTypeName}>()
-                        ${getMutableListForeachDeepCopyCode(typeArgsType, paramName, typeName)}
-                    """.trimIndent()
+                    val old${paramName}MutableList  = $oldMutableListCode
+                    var new${paramName}MutableList :MutableList<$genericsArgsTypeName> = mutableListOf()
+                        ${getMutableListForeachDeepCopyCode(genericsArgsType, paramName, mType)}
+                    """.trimIndent(),
                 )
             }
-
         }
 
         return code.toString()
@@ -224,29 +206,30 @@ class EnhanceVisitor(
     private fun getMutableListForeachDeepCopyCode(
         type: KSTypeReference,
         paramName: String,
-        listTypeName: String,
-        ): String {
-
-        val isEnhancedData =
-            type.resolve().declaration.isAnnotationPresent(EnhancedData::class)
+        listType: KSTypeReference,
+    ): String {
+        val isEnhancedData = type.resolve().declaration.isAnnotationPresent(EnhancedData::class)
         val newMutableListName = "new${paramName}MutableList"
         val oldMutableListName = "old${paramName}MutableList"
 
-        val typeName = generateParamsType(type)
-        //这里说的是MutableList<E> 中 MutableList<E>是不是可空
+        val typeName = type.fullyQualifiedTypeName()
+        // 这里说的是MutableList<E> 中 MutableList<E>是不是可空
         val addCopyCode = if (typeName.contains("?")) "it?.deepCopy()" else "it.deepCopy()"
-        return if (listTypeName.contains("?")) {
-            //这里说的是MutableList<E> 中 E是不是可空
-            //MutableList可空
-            if (isEnhancedData) "    $newMutableListName  =  $oldMutableListName?.toMutableList()" else {
+        return if (listType.fullyQualifiedNonInclusiveGenericsTypeName().contains("?")) {
+            // 这里说的是MutableList<E> 中 E是不是可空
+            // MutableList可空
+            if (!isEnhancedData) {
+                "    $newMutableListName  =  $oldMutableListName?.toMutableList()"
+            } else {
                 "    $oldMutableListName?.forEach{$newMutableListName.add($addCopyCode)}"
             }
         } else {
-            //MutableList不可空
-            if (isEnhancedData) "    $newMutableListName =  $oldMutableListName.toMutableList()" else {
+            // MutableList不可空
+            if (!isEnhancedData) {
+                "    $newMutableListName =  $oldMutableListName.toMutableList()"
+            } else {
                 "    $oldMutableListName.forEach{$newMutableListName.add($addCopyCode)}"
             }
         }
-
     }
 }
