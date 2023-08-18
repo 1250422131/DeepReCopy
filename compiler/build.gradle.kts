@@ -14,18 +14,22 @@ dependencies {
     implementation(libs.kotlin.reflect)
 }
 
-val signingKeyId: String = gradleLocalProperties(rootDir).getProperty("signing.keyId")
-val signingPassword: String = gradleLocalProperties(rootDir).getProperty("signing.password")
+val signingKeyId: String = gradleLocalProperties(rootDir).getProperty("signing.keyId") ?: ""
+val signingPassword: String = gradleLocalProperties(rootDir).getProperty("signing.password") ?: ""
 val secretKeyRingFile: String =
-    gradleLocalProperties(rootDir).getProperty("signing.secretKeyRingFile")
-val ossrhUsername: String = gradleLocalProperties(rootDir).getProperty("ossrhUsername")
-val ossrhPassword: String = gradleLocalProperties(rootDir).getProperty("ossrhPassword")
-val PUBLISH_NAME: String = gradleLocalProperties(rootDir).getProperty("PUBLISH_NAME")
-val PUBLISH_GROUP_ID: String = gradleLocalProperties(rootDir).getProperty("PUBLISH_GROUP_ID")
-val PUBLISH_EMAIL: String = gradleLocalProperties(rootDir).getProperty("PUBLISH_EMAIL")
+    gradleLocalProperties(rootDir).getProperty("signing.secretKeyRingFile") ?: ""
+val ossrhUsername: String = gradleLocalProperties(rootDir).getProperty("ossrhUsername") ?: ""
+val ossrhPassword: String = gradleLocalProperties(rootDir).getProperty("ossrhPassword") ?: ""
+val PUBLISH_NAME: String = gradleLocalProperties(rootDir).getProperty("PUBLISH_NAME") ?: ""
+val PUBLISH_GROUP_ID: String = gradleLocalProperties(rootDir).getProperty("PUBLISH_GROUP_ID") ?: ""
+val PUBLISH_EMAIL: String = gradleLocalProperties(rootDir).getProperty("PUBLISH_EMAIL") ?: ""
 
-group = "com.imcys.deeprecopy"
-version = "0.0.1-Alpha-09"
+val mGroupId = "com.imcys.deeprecopy"
+val mVersion = "0.0.1-Alpha-10"
+val mArtifactId = "compiler"
+
+group = mGroupId
+version = mVersion
 
 java {
     sourceCompatibility = JavaVersion.VERSION_17
@@ -37,15 +41,12 @@ java {
 publishing {
     publications {
         create<MavenPublication>("maven") {
-            artifactId = "compiler"
-            groupId = "com.imcys.deeprecopy"
-            version = "0.0.1-Alpha-09"
-
+            artifactId = mArtifactId
+            groupId = mGroupId
+            version = mVersion
 
             // 配置额外的 artifact，如 javadocJar 和 sourcesJar
             from(components["java"])
-
-
 
             pom {
                 name.value("DeepReCopy")
@@ -86,7 +87,7 @@ publishing {
             val snapshotsRepoUrl = "https://s01.oss.sonatype.org/content/repositories/snapshots/"
 
             url = uri(
-                if (version.toString().endsWith("SNAPSHOT")) snapshotsRepoUrl else releasesRepoUrl
+                if (version.toString().endsWith("SNAPSHOT")) snapshotsRepoUrl else releasesRepoUrl,
             )
             credentials {
                 // 你的sonatype账号

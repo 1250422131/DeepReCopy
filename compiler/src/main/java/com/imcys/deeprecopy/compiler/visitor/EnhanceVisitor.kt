@@ -175,21 +175,27 @@ class EnhanceVisitor(
                 // list类型
                 val mTypeName = mType.fullyQualifiedTypeName()
                 val genericsArgsTypeName = genericsArgsType.fullyQualifiedTypeName()
+                val listTypeName = mType.fullyQualifiedNonInclusiveGenericsTypeName()
 
                 val oldMutableListCode = if (isMutableListClass) {
                     paramName
                 } else {
-                    val listTypeName = mType.fullyQualifiedNonInclusiveGenericsTypeName()
                     if (listTypeName.contains("?")) {
                         "$paramName?.toMutableList()"
                     } else {
                         "$paramName.toMutableList()"
                     }
                 }
+                val oldMutableListTypeCode = if (listTypeName.contains("?")) {
+                    ":MutableList<$genericsArgsTypeName>?"
+                } else {
+                    ":MutableList<$genericsArgsTypeName>"
+                }
+
                 code.appendLine(
                     """
                     val old${paramName}MutableList  = $oldMutableListCode
-                    var new${paramName}MutableList :MutableList<$genericsArgsTypeName> = mutableListOf()
+                    var new${paramName}MutableList $oldMutableListTypeCode = mutableListOf()
                         ${getMutableListForeachDeepCopyCode(genericsArgsType, paramName, mType)}
                     """.trimIndent(),
                 )
