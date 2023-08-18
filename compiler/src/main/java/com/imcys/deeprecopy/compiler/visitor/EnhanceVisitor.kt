@@ -17,7 +17,7 @@ class EnhanceVisitor(
 ) : KSVisitorVoid() {
 
     private val tag = "DeepReCopy->${this::class.simpleName}:"
-    val logger = environment.logger
+    private val logger = environment.logger
 
     override fun visitClassDeclaration(classDeclaration: KSClassDeclaration, data: Unit) {
         super.visitClassDeclaration(classDeclaration, data)
@@ -59,6 +59,7 @@ class EnhanceVisitor(
     /**
      * 生成开发代码
      */
+    @OptIn(KspExperimental::class)
     private fun generateCode(
         packageName: String,
         className: String,
@@ -66,88 +67,78 @@ class EnhanceVisitor(
     ): String {
         // 生成临时类
         val complexClassName = "_${className}CopyFun"
-        val extensionFunctionCode = buildString {
-            // 添加包声明
-            appendLine("package $packageName\n\n")
 
-            // 新增为DSL写法支持的Data类
-            appendCopyFunDataClassCode(complexClassName, params)
-
-            // 新增深拷贝扩展函数代码
-            appendDeepCopyFunCode(className, params)
-
-            // 新增DSL写法的深拷贝扩展函数代码
-            appendDSLDeepCodyFunCode(className, complexClassName, params)
-        }
-        return extensionFunctionCode
-    }
-
-    /**
-     * 生成DSL写法的深拷贝扩展函数
-     */
-    private fun StringBuilder.appendDSLDeepCodyFunCode(
-        className: String,
-        complexClassName: String,
-        params: List<KSValueParameter>,
-    ) {
-        appendLine("fun $className.deepCopy(")
-        appendLine("    copyFunction:$complexClassName.()->Unit): $className{")
-        appendLine("    val copyData = $complexClassName(${getReturn(params, "")})")
-        appendLine("    copyData.copyFunction()")
-        appendLine("    return this.deepCopy(${getReturn(params, "copyData.")})")
-        appendLine("}")
-    }
-
-    /**
-     * 生成真正的深拷贝方法代码
-     */
-    private fun StringBuilder.appendDeepCopyFunCode(
-        className: String,
-        params: List<KSValueParameter>,
-    ) {
-        appendLine("fun $className.deepCopy(")
-        appendParamsWithDefaultValues(params)
-        appendLine("): $className {")
-        //生成MutableList深拷贝：如果有
-        appendLine(getMutableListDeepCopyCode(params))
-        appendLine("    return $className(${getReturn(params)})")
-        appendLine("}\n\n")
-    }
-
-    /**
-     * 生成需要被深拷贝类的临时数据类代码
-     * 用来支持DSL写法
-     */
-    private fun StringBuilder.appendCopyFunDataClassCode(
-        complexClassName: String,
-        params: List<KSValueParameter>,
-    ) {
-        appendLine("data class $complexClassName(")
-        appendParams(params)
-        appendLine(")\n\n")
-    }
-
-    private fun StringBuilder.appendParams(params: List<KSValueParameter>) {
-        params.forEach {
-            val paramName = it.name?.getShortName() ?: "Erro"
+        val classParamsString = params.joinToString(separator = "\n" + "\t".repeat(3)) {
+            val paramName = it.name?.getShortName() ?: "Error"
             val typeName = generateParamsType(it.type)
-            appendLine("    var $paramName : $typeName,")
+            "var $paramName: $typeName, "
         }
+
+        val funParamsString = params.joinToString(separator = "\n" + "\t".repeat(3)) {
+            val paramName = it.name?.getShortName() ?: "Error"
+            val typeName = generateParamsType(it.type)
+            "$paramName: $typeName = this.$paramName, "
+        }
+
+        val deepCopyParamsString = params.joinToString(", ") { param ->
+            val paramName = param.name?.getShortName() ?: "Error"
+            val typeName = generateParamsType(param.type)
+            val isEnhancedData =
+                param.type.resolve().declaration.isAnnotationPresent(EnhancedData::class)
+            if (typeName.startsWith("kotlin.") || !isEnhancedData) {
+                paramName
+            } else {
+                if (typeName.contains("?")) "$paramName?.deepCopy()" else "$paramName.deepCopy()"
+            }
+        }
+
+        val deepCopyDSLParamsString = params.joinToString(", ") {
+            it.name?.getShortName() ?: "Error"
+        }
+
+        val copyDataParamsString = params.joinToString(", ") {
+            "copyData.${it.name?.getShortName() ?: "Error"}"
+        }
+
+        return """
+        // 添加包声明
+        package $packageName
+        
+        // 新增为DSL写法支持的Data类
+        data class $complexClassName(
+            $classParamsString
+        )
+        
+        // 新增深拷贝扩展函数代码
+        fun $className.deepCopy(
+            $funParamsString
+        ): $className {
+            ${getMutableListDeepCopyCode(params)}
+            return $className($deepCopyParamsString)
+        }
+        
+        // 新增DSL写法的深拷贝扩展函数代码
+        fun $className.deepCopy(
+            copyFunction:$complexClassName.()->Unit
+            ): $className{
+            val copyData = $complexClassName($deepCopyDSLParamsString)
+            copyData.copyFunction()
+            return this.deepCopy($copyDataParamsString)
+        }
+        """.trimIndent()
     }
 
-    private fun StringBuilder.appendParamsWithDefaultValues(params: List<KSValueParameter>) {
-        params.forEach {
-            val paramName = it.name?.getShortName() ?: "Erro"
+    /*private fun deepCopyParamsString(params: List<KSValueParameter>):String{
+        params.joinToString(separator = "\n\t") {
+            val paramName = it.name?.getShortName() ?: "Error"
             val typeName = generateParamsType(it.type)
-            appendLine(
-                "    $paramName : $typeName = this.$paramName,",
-            )
+            "$paramName: $typeName = this.$paramName, "
         }
-    }
+    }*/
 
     private fun generateParamsType(type: KSTypeReference): String {
         val typeName = StringBuilder(
-            type.resolve().declaration.qualifiedName?.asString() ?: "<ERROR>",
+            type.resolve().declaration.qualifiedName?.asString() ?: "ERROR",
             // 获取参数的类型名称，如果获取失败，则使用 "<ERROR>"
         )
 
@@ -172,47 +163,11 @@ class EnhanceVisitor(
 
         // 如果类型可空，那么就在后面加上?
         typeName.append(if (type.resolve().nullability == Nullability.NULLABLE) "?" else "")
+        /*
+                //如果是kotlin自带的类型，去除前缀
+                if(typeName.startsWith("kotlin.")) typeName.deleteRange(0,7)*/
 
         return typeName.toString()
-    }
-
-    private fun getReturn(params: List<KSValueParameter>, prefix: String = ""): String {
-        return params.joinToString(", ") { param ->
-            val paramName = param.name?.getShortName() ?: "Error"
-            "$prefix$paramName"
-        }
-    }
-
-    @OptIn(KspExperimental::class)
-    private fun getReturn(params: List<KSValueParameter>): String {
-        return params.joinToString(", ") { param ->
-            val paramName = param.name?.getShortName() ?: "Error"
-            val typeName = generateParamsType(param.type)
-            val mType = param.type
-            val isEnhancedData =
-                mType.resolve().declaration.isAnnotationPresent(EnhancedData::class)
-
-            var isMutableListClass = false
-
-            //检查是不是Array，因为它不可变
-            (mType.resolve().declaration as? KSClassDeclaration)?.apply {
-                for (superType in superTypes) {
-                    val superClassType = generateParamsType(superType)
-                    if (superClassType.contains("kotlin.collections.MutableList")) {
-                        isMutableListClass = true
-                        break
-                    }
-                }
-            }
-
-            if (isMutableListClass) {
-                "new${paramName}MutableList"
-            } else if (typeName.startsWith("kotlin.") || !isEnhancedData) {
-                paramName
-            } else {
-                if (typeName.contains("?")) "$paramName?.deepCopy()" else "$paramName.deepCopy()"
-            }
-        }
     }
 
     /**
@@ -250,8 +205,8 @@ class EnhanceVisitor(
                 } else ""
                 code.appendLine(
                     """
-                            val old${paramName}MutableList = $paramName
-                            var new${paramName}MutableList $newListIsNullTypeCode = mutableListOf<${mTypeName}>()
+                    val old${paramName}MutableList = $paramName
+                    var new${paramName}MutableList $newListIsNullTypeCode = mutableListOf<${mTypeName}>()
                         ${getMutableListForeachDeepCopyCode(typeArgsType, paramName, typeName)}
                     """.trimIndent()
                 )
@@ -270,7 +225,6 @@ class EnhanceVisitor(
         type: KSTypeReference,
         paramName: String,
         listTypeName: String,
-
         ): String {
 
         val isEnhancedData =
