@@ -1,11 +1,13 @@
 package com.imcys.deeprecopy.demo
 
 import com.imcys.deeprecopy.an.EnhancedData
+import java.util.Date
 
 @EnhancedData
 data class AData(
-    val name: String,
+    val name: Int,
     val title: String,
-    val bData: BData,
-    val bDatas: MutableList<String>?,
+    val bDatas: MutableList<BData>,
+    val date: Date,
+
 )

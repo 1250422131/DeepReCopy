@@ -9,8 +9,13 @@ plugins {
 }
 
 java {
+
     sourceCompatibility = JavaVersion.VERSION_17
     targetCompatibility = JavaVersion.VERSION_17
+}
+
+dependencies {
+    implementation(libs.kotlin.reflect)
 }
 
 val signingKeyId: String = gradleLocalProperties(rootDir).getProperty("signing.keyId") ?: ""

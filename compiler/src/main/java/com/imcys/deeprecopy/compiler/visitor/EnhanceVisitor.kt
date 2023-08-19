@@ -10,9 +10,13 @@ import com.google.devtools.ksp.symbol.KSTypeReference
 import com.google.devtools.ksp.symbol.KSValueParameter
 import com.google.devtools.ksp.symbol.KSVisitorVoid
 import com.imcys.deeprecopy.an.EnhancedData
-import com.imcys.deeprecopy.compiler.extend.fullyQualifiedNonInclusiveGenericsTypeName
+import com.imcys.deeprecopy.compiler.extend.existCloneFunctions
+import com.imcys.deeprecopy.compiler.extend.existEmptyConstructor
+import com.imcys.deeprecopy.compiler.extend.fullyQualifiedNotIncludedGenericsTypeName
 import com.imcys.deeprecopy.compiler.extend.fullyQualifiedTypeName
 import com.imcys.deeprecopy.compiler.extend.isArrayType
+import com.imcys.deeprecopy.compiler.extend.isBasicDataType
+import com.imcys.deeprecopy.compiler.extend.isImplementSerializable
 import com.imcys.deeprecopy.compiler.extend.isListButNotMutableListType
 import com.imcys.deeprecopy.compiler.extend.isMutableListType
 
@@ -102,8 +106,9 @@ class EnhanceVisitor(
                 "new${paramName}MutableList"
             } else if (mType.isArrayType()) {
                 "new${paramName}MutableList.toTypedArray()"
-            } else if (typeName.startsWith("kotlin.") || !isEnhancedData) {
-                paramName
+            } else if (!isEnhancedData) {
+                // 准备与下面的情况进行合并处理
+                getNotEnhancedDataClassCopyCode(typeName, mType, paramName)
             } else {
                 if (typeName.contains("?")) "$paramName?.deepCopy()" else "$paramName.deepCopy()"
             }
@@ -121,6 +126,7 @@ class EnhanceVisitor(
         return """
         // 添加包声明
         package $packageName
+        import com.imcys.deeprecopy.utils.SerializableUtils
         
         // 新增为DSL写法支持的Data类
         data class $complexClassName(
@@ -144,6 +150,39 @@ class EnhanceVisitor(
             return this.deepCopy($copyDataParamsString)
         }
         """.trimIndent()
+    }
+
+    /**
+     * 获取未增强数据类复制代码
+     * @param typeName 待生成的类型名称
+     * @param mType 待生成的类型
+     * @param paramName 属性名称
+     */
+    private fun getNotEnhancedDataClassCopyCode(
+        typeName: String,
+        mType: KSTypeReference,
+        paramName: String,
+    ): String {
+        // 是否为可空类型
+        val isNullableType = typeName.contains("?")
+        val existEmptyConstructor = mType.existEmptyConstructor()
+        // 序列化的条件是继承了Serializable，并且有空构造函数
+        val isSerializable =
+            mType.isImplementSerializable() && existEmptyConstructor && !isNullableType
+        // 是基本数据类型
+        val isBasicDataType = mType.isBasicDataType()
+        // 存在克隆函数
+        val existCloneFunctions = mType.existCloneFunctions()
+        // 生成连接符
+        val hyphen = if (isNullableType) "?." else "."
+        return if (existCloneFunctions) {
+            "${paramName}${hyphen}clone() as $typeName"
+        } else if (!isBasicDataType && isSerializable) {
+            "SerializableUtils.deepCopy($paramName.javaClass.kotlin)"
+        } else {
+            // 无法处理的
+            paramName
+        }
     }
 
     /*private fun deepCopyParamsString(params: List<KSValueParameter>):String{
@@ -173,9 +212,9 @@ class EnhanceVisitor(
                 val genericsArgs = mType.element!!.typeArguments
                 val genericsArgsType = genericsArgs[0].type!!
                 // list类型
-                val mTypeName = mType.fullyQualifiedTypeName()
+                // val mTypeName = mType.fullyQualifiedTypeName()
                 val genericsArgsTypeName = genericsArgsType.fullyQualifiedTypeName()
-                val listTypeName = mType.fullyQualifiedNonInclusiveGenericsTypeName()
+                val listTypeName = mType.fullyQualifiedNotIncludedGenericsTypeName()
 
                 val oldMutableListCode = if (isMutableListClass) {
                     paramName
@@ -207,6 +246,10 @@ class EnhanceVisitor(
 
     /**
      * 生成MutableList深拷贝的核心内容
+     * 这个函数参数有争议，下面详细阐述一下
+     * @param type MutableList中泛型类型
+     * @param paramName MutableList属性名称
+     * @param listType MutableList类型
      */
     @OptIn(KspExperimental::class)
     private fun getMutableListForeachDeepCopyCode(
@@ -217,21 +260,25 @@ class EnhanceVisitor(
         val isEnhancedData = type.resolve().declaration.isAnnotationPresent(EnhancedData::class)
         val newMutableListName = "new${paramName}MutableList"
         val oldMutableListName = "old${paramName}MutableList"
-
         val typeName = type.fullyQualifiedTypeName()
         // 这里说的是MutableList<E> 中 MutableList<E>是不是可空
-        val addCopyCode = if (typeName.contains("?")) "it?.deepCopy()" else "it.deepCopy()"
-        return if (listType.fullyQualifiedNonInclusiveGenericsTypeName().contains("?")) {
+        val listTypeName = listType.fullyQualifiedNotIncludedGenericsTypeName()
+        var addCopyCode = getNotEnhancedDataClassCopyCode(typeName, type, "it")
+        if (addCopyCode == "it" && isEnhancedData) {
+            addCopyCode = if (typeName.contains("?")) "it?.deepCopy()" else "it.deepCopy()"
+        }
+
+        return if (listTypeName.contains("?")) {
             // 这里说的是MutableList<E> 中 E是不是可空
             // MutableList可空
-            if (!isEnhancedData) {
+            if (addCopyCode == "it") {
                 "    $newMutableListName  =  $oldMutableListName?.toMutableList()"
             } else {
                 "    $oldMutableListName?.forEach{$newMutableListName.add($addCopyCode)}"
             }
         } else {
             // MutableList不可空
-            if (!isEnhancedData) {
+            if (addCopyCode == "it") {
                 "    $newMutableListName =  $oldMutableListName.toMutableList()"
             } else {
                 "    $oldMutableListName.forEach{$newMutableListName.add($addCopyCode)}"
