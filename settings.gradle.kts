@@ -23,4 +23,4 @@ rootProject.name = "DeepReCopy"
 include(":app")
 include(":compiler")
 include(":core")
-include(":plugin")
+include(":inspector:kotlinx")
