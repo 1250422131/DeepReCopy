@@ -173,12 +173,13 @@ class EnhanceVisitor(
         val existCloneFunctions = mType.existCloneFunctions()
         // 生成连接符
         val hyphen = if (isNullableType) "?." else "."
-        return if (existCloneFunctions) {
-            "${paramName}${hyphen}clone() as $typeName"
-        } else if (isEnhancedData) {
+        return if (isEnhancedData) {
             "${paramName}${hyphen}deepCopy()"
         } else if (!isBasicDataType && isSerializable) {
             "SerializableUtils.deepCopy($paramName.javaClass.kotlin)"
+        } else if (existCloneFunctions) {
+            // 它只是浅拷贝
+            "${paramName}${hyphen}clone() as $typeName"
         } else {
             // 无法处理的
             paramName
