@@ -95,9 +95,6 @@ class EnhanceVisitor(
             val mType = param.type
 
             val typeName = mType.fullyQualifiedTypeName()
-            // 封装过了
-            val isEnhancedData =
-                mType.resolve().declaration.isAnnotationPresent(EnhancedData::class)
 
             // 有待改进写法
             if (mType.isListButNotMutableListType()) {
@@ -106,11 +103,8 @@ class EnhanceVisitor(
                 "new${paramName}MutableList"
             } else if (mType.isArrayType()) {
                 "new${paramName}MutableList.toTypedArray()"
-            } else if (!isEnhancedData) {
-                // 准备与下面的情况进行合并处理
-                getNotEnhancedDataClassCopyCode(typeName, mType, paramName)
             } else {
-                if (typeName.contains("?")) "$paramName?.deepCopy()" else "$paramName.deepCopy()"
+                getNotEnhancedDataClassCopyCode(typeName, mType, paramName)
             }
         }
 
@@ -158,6 +152,7 @@ class EnhanceVisitor(
      * @param mType 待生成的类型
      * @param paramName 属性名称
      */
+    @OptIn(KspExperimental::class)
     private fun getNotEnhancedDataClassCopyCode(
         typeName: String,
         mType: KSTypeReference,
@@ -166,6 +161,9 @@ class EnhanceVisitor(
         // 是否为可空类型
         val isNullableType = typeName.contains("?")
         val existEmptyConstructor = mType.existEmptyConstructor()
+        val isEnhancedData =
+            mType.resolve().declaration.isAnnotationPresent(EnhancedData::class)
+
         // 序列化的条件是继承了Serializable，并且有空构造函数
         val isSerializable =
             mType.isImplementSerializable() && existEmptyConstructor && !isNullableType
@@ -177,6 +175,8 @@ class EnhanceVisitor(
         val hyphen = if (isNullableType) "?." else "."
         return if (existCloneFunctions) {
             "${paramName}${hyphen}clone() as $typeName"
+        } else if (isEnhancedData) {
+            "${paramName}${hyphen}deepCopy()"
         } else if (!isBasicDataType && isSerializable) {
             "SerializableUtils.deepCopy($paramName.javaClass.kotlin)"
         } else {
@@ -263,10 +263,7 @@ class EnhanceVisitor(
         val typeName = type.fullyQualifiedTypeName()
         // 这里说的是MutableList<E> 中 MutableList<E>是不是可空
         val listTypeName = listType.fullyQualifiedNotIncludedGenericsTypeName()
-        var addCopyCode = getNotEnhancedDataClassCopyCode(typeName, type, "it")
-        if (addCopyCode == "it" && isEnhancedData) {
-            addCopyCode = if (typeName.contains("?")) "it?.deepCopy()" else "it.deepCopy()"
-        }
+        val addCopyCode = getNotEnhancedDataClassCopyCode(typeName, type, "it")
 
         return if (listTypeName.contains("?")) {
             // 这里说的是MutableList<E> 中 E是不是可空
@@ -274,7 +271,7 @@ class EnhanceVisitor(
             if (addCopyCode == "it") {
                 "    $newMutableListName  =  $oldMutableListName?.toMutableList()"
             } else {
-                "    $oldMutableListName?.forEach{$newMutableListName.add($addCopyCode)}"
+                "    $oldMutableListName?.forEach{$newMutableListName?.add($addCopyCode)}"
             }
         } else {
             // MutableList不可空

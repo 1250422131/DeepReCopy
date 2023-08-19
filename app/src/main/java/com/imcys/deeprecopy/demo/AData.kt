@@ -9,5 +9,4 @@ data class AData(
     val title: String,
     val bDatas: MutableList<BData>,
     val date: Date,
-
 )
