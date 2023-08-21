@@ -10,5 +10,7 @@ data class AData(
     val bDatas: BData,
     val dates: MutableList<Date>,
     val onComplete: (Boolean) -> Unit,
+    val aSet: Set<String>,
+    val aMutableSet: MutableSet<String>,
 
     )

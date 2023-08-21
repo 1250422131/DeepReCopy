@@ -75,6 +75,26 @@ fun KSTypeReference.isImplementSerializable(): Boolean {
     return checkTypeHierarchy("java.io.Serializable")
 }
 
+/**
+ * 检查是否为Set类型
+ */
+fun KSTypeReference.isSetType(): Boolean {
+    return checkTypeHierarchy("kotlin.collections.Set")
+}
+
+fun KSTypeReference.isMutableSetType(): Boolean {
+    return checkTypeHierarchy("kotlin.collections.MutableSet")
+}
+
+/**
+ * 检查是否为可变集合->通用策略
+ * @receiver KSTypeReference
+ * @return Boolean
+ */
+fun KSTypeReference.isMutableCollectionType(): Boolean {
+    return checkTypeHierarchy("kotlin.collections.MutableCollection")
+}
+
 fun KSTypeReference.existEmptyConstructor(): Boolean {
     var existEmptyConstructor = false
     (this.resolve().declaration as? KSClassDeclaration)?.apply {
@@ -126,7 +146,8 @@ fun KSTypeReference.fullyQualifiedNotIncludedGenericsTypeName(): String {
 private fun KSTypeReference.checkTypeHierarchy(typeName: String): Boolean {
     var isType = false
 
-    if (this.fullyQualifiedTypeName().contains(typeName)) return true
+    // 假设当前就是就不用判断了
+    if (this.fullyQualifiedTypeName() == typeName) return true
 
     (this.resolve().declaration as? KSClassDeclaration)?.apply {
         for (superType in superTypes) {

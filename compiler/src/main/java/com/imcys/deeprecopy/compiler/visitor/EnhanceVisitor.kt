@@ -196,6 +196,7 @@ class EnhanceVisitor(
 
     /**
      * 生成MutableList深拷贝：如果有MutableList类型参数的话
+     * 即将废除：由于可变List和可变Set都可以用统一，因此需要在这里进行调整。
      */
     private fun getMutableListDeepCopyCode(params: List<KSValueParameter>): String {
         val code = StringBuilder("")
