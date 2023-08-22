@@ -16,9 +16,16 @@ import com.imcys.deeprecopy.compiler.extend.fullyQualifiedNotIncludedGenericsTyp
 import com.imcys.deeprecopy.compiler.extend.fullyQualifiedTypeName
 import com.imcys.deeprecopy.compiler.extend.isArrayType
 import com.imcys.deeprecopy.compiler.extend.isBasicDataType
+import com.imcys.deeprecopy.compiler.extend.isHashMapType
+import com.imcys.deeprecopy.compiler.extend.isHashSetType
 import com.imcys.deeprecopy.compiler.extend.isImplementSerializable
 import com.imcys.deeprecopy.compiler.extend.isListButNotMutableListType
+import com.imcys.deeprecopy.compiler.extend.isMapType
+import com.imcys.deeprecopy.compiler.extend.isMutableCollectionType
 import com.imcys.deeprecopy.compiler.extend.isMutableListType
+import com.imcys.deeprecopy.compiler.extend.isMutableMapType
+import com.imcys.deeprecopy.compiler.extend.isMutableSetType
+import com.imcys.deeprecopy.compiler.extend.isSetType
 
 class EnhanceVisitor(
     private val environment: SymbolProcessorEnvironment,
@@ -67,7 +74,6 @@ class EnhanceVisitor(
     /**
      * 生成开发代码
      */
-    @OptIn(KspExperimental::class)
     private fun generateCode(
         packageName: String,
         className: String,
@@ -96,13 +102,16 @@ class EnhanceVisitor(
 
             val typeName = mType.fullyQualifiedTypeName()
 
-            // 有待改进写法
-            if (mType.isListButNotMutableListType()) {
-                "new${paramName}MutableList.toList()"
-            } else if (mType.isMutableListType()) {
-                "new${paramName}MutableList"
-            } else if (mType.isArrayType()) {
+            if (mType.isArrayType()) {
                 "new${paramName}MutableList.toTypedArray()"
+            } else if (mType.isListButNotMutableListType()) {
+                "new${paramName}MutableList.toList()"
+            } else if (mType.isMutableCollectionType()) {
+                getMutableCollectionClassDeepCopyCode(mType, paramName, typeName)
+            } else if (mType.isSetType()) {
+                "new${paramName}MutableList.toSet()"
+            } else if (mType.isMapType()) {
+                getMapClassDeepCopyCode(mType, paramName, typeName)
             } else {
                 getNotEnhancedDataClassCopyCode(typeName, mType, paramName)
             }
@@ -131,7 +140,9 @@ class EnhanceVisitor(
         fun $className.deepCopy(
             $funParamsString
         ): $className {
-            ${getMutableListDeepCopyCode(params)}
+        
+            ${getMutableCollectionDeepCopyCode(params)}
+            ${getMapDeepCopyCode(params)}
             return $className($deepCopyParamsString)
         }
         
@@ -144,6 +155,171 @@ class EnhanceVisitor(
             return this.deepCopy($copyDataParamsString)
         }
         """.trimIndent()
+    }
+
+    private fun getMapDeepCopyCode(params: List<KSValueParameter>): String {
+        val code = StringBuilder("")
+
+        // 过滤可变集合的
+        params.forEach { param ->
+            val paramName = param.name?.getShortName() ?: "Error"
+            // 每个属性的类型
+            val mType = param.type
+
+            val isMap = mType.isMapType()
+            val isHashMap = mType.isHashMapType()
+
+            if (isMap) {
+                // 泛型情况
+                val genericsArgs = mType.element!!.typeArguments
+                // Map必然只有两个泛型，这里就拿value的值
+                val valueGenericsType = genericsArgs[1].type!!
+
+                val mapTypeName = mType.fullyQualifiedTypeName()
+
+                val newMapParamsValue = if (isHashMap) {
+                    "hashMapOf()"
+                } else {
+                    "mutableMapOf()"
+                }
+
+                code.appendLine(
+                    """
+                    val old${paramName}Map  = $paramName
+                    var new${paramName}Map :$mapTypeName = $newMapParamsValue
+                        ${
+                        getMapForeachDeepCopyCode(
+                            valueGenericsType,
+                            paramName,
+                            mType,
+                        )
+                    }
+                        
+                    """.trimIndent(),
+                )
+            }
+        }
+
+        return code.toString()
+    }
+
+    private fun getMapForeachDeepCopyCode(
+        valueGenericsType: KSTypeReference,
+        paramName: String,
+        mapType: KSTypeReference
+    ): String {
+        val newMutableMapName = "new${paramName}Map"
+        val oldMutableMapName = "old${paramName}Map"
+
+        val valueTypeName = valueGenericsType.fullyQualifiedNotIncludedGenericsTypeName()
+        val mapTypeName = mapType.fullyQualifiedNotIncludedGenericsTypeName()
+
+        val addCopyCode =
+            getNotEnhancedDataClassCopyCode(valueTypeName, valueGenericsType, "it.value")
+
+        return if (mapTypeName.contains("?")) {
+            // 这里说的是MutableList<E> 中 E是不是可空
+            // Map可空
+            if (addCopyCode == "it") {
+                "    $newMutableMapName = $oldMutableMapName"
+            } else {
+                "    $oldMutableMapName?.forEach{$newMutableMapName.put(it.key,$addCopyCode)}"
+            }
+        } else {
+            // Map不可空
+            if (addCopyCode == "it") {
+                "    $newMutableMapName = $oldMutableMapName"
+            } else {
+                "    $oldMutableMapName.forEach{$newMutableMapName.put(it.key,$addCopyCode)}"
+            }
+        }
+    }
+
+    private fun getMapClassDeepCopyCode(
+        mType: KSTypeReference,
+        paramName: String,
+        typeName: String
+    ) = if (mType.isMutableMapType() || mType.isHashMapType()) {
+        "new${paramName}Map"
+    } else if (mType.isMapType()) {
+        "new${paramName}Map.toMap()"
+    } else {
+        getNotEnhancedDataClassCopyCode(typeName, mType, paramName)
+    }
+
+    /**
+     * 获取MutableCollection的深拷贝代码
+     */
+    private fun getMutableCollectionClassDeepCopyCode(
+        mType: KSTypeReference,
+        paramName: String,
+        typeName: String
+    ) = if (mType.isMutableListType()) {
+        "new${paramName}MutableList"
+    } else if (mType.isHashSetType()) {
+        // HashSet -> MutableSet -> Set
+        "new${paramName}MutableList.toHashSet()"
+    } else if (mType.isMutableSetType()) {
+        "new${paramName}MutableList.toMutableSet()"
+    } else {
+        // 无法处理，交给下一层
+        getNotEnhancedDataClassCopyCode(typeName, mType, paramName)
+    }
+
+    private fun getMutableCollectionDeepCopyCode(params: List<KSValueParameter>): String {
+        val code = StringBuilder("")
+
+        // 过滤可变集合的
+        params.forEach { param ->
+            val paramName = param.name?.getShortName() ?: "Error"
+            // 每个属性的类型
+            val mType = param.type
+
+            val isMutableListClass = mType.isMutableListType()
+            val isList = mType.isListButNotMutableListType()
+            val isArray = mType.isArrayType()
+            val isSet = mType.isSetType()
+            val isMutableSet = mType.isMutableSetType()
+            val isHashSet = mType.isHashSetType()
+
+            val isListClass = isMutableListClass || isList || isArray
+            val isSetClass = isSet || isMutableSet || isHashSet
+
+            if (isListClass || isSetClass) {
+                // 泛型情况
+                val genericsArgs = mType.element!!.typeArguments
+                // List必然只有一个泛型
+                val genericsArgsType = genericsArgs[0].type!!
+                // list类型
+                // val mTypeName = mType.fullyQualifiedTypeName()
+                val genericsArgsTypeName = genericsArgsType.fullyQualifiedTypeName()
+                val listTypeName = mType.fullyQualifiedNotIncludedGenericsTypeName()
+
+                val oldMutableListCode =
+                    if (listTypeName.contains("?")) {
+                        "$paramName?.toMutableList()"
+                    } else {
+                        "$paramName.toMutableList()"
+                    }
+
+                val oldMutableListTypeCode = if (listTypeName.contains("?")) {
+                    ":MutableList<$genericsArgsTypeName>?"
+                } else {
+                    ":MutableList<$genericsArgsTypeName>"
+                }
+
+                code.appendLine(
+                    """
+                    val old${paramName}MutableList  = $oldMutableListCode
+                    var new${paramName}MutableList $oldMutableListTypeCode = mutableListOf()
+                        ${getMutableListForeachDeepCopyCode(genericsArgsType, paramName, mType)}
+                        
+                    """.trimIndent(),
+                )
+            }
+        }
+
+        return code.toString()
     }
 
     /**
@@ -196,8 +372,8 @@ class EnhanceVisitor(
 
     /**
      * 生成MutableList深拷贝：如果有MutableList类型参数的话
-     * 即将废除：由于可变List和可变Set都可以用统一，因此需要在这里进行调整。
      */
+    @Deprecated("由于可变List和可变Set都可以用统一，此方法被废除，请改用getMutableCollectionDeepCopyCode()")
     private fun getMutableListDeepCopyCode(params: List<KSValueParameter>): String {
         val code = StringBuilder("")
 
@@ -253,16 +429,14 @@ class EnhanceVisitor(
      * @param paramName MutableList属性名称
      * @param listType MutableList类型
      */
-    @OptIn(KspExperimental::class)
     private fun getMutableListForeachDeepCopyCode(
         type: KSTypeReference,
         paramName: String,
         listType: KSTypeReference,
     ): String {
-        val isEnhancedData = type.resolve().declaration.isAnnotationPresent(EnhancedData::class)
         val newMutableListName = "new${paramName}MutableList"
         val oldMutableListName = "old${paramName}MutableList"
-        val typeName = type.fullyQualifiedTypeName()
+        val typeName = type.fullyQualifiedNotIncludedGenericsTypeName()
         // 这里说的是MutableList<E> 中 MutableList<E>是不是可空
         val listTypeName = listType.fullyQualifiedNotIncludedGenericsTypeName()
         val addCopyCode = getNotEnhancedDataClassCopyCode(typeName, type, "it")

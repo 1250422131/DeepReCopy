@@ -16,9 +16,6 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        mutableListOf<String>()
-        mutableMapOf<String,String>()
-        mutableSetOf<String>()
         setContent {
             DeepReCopyTheme {
                 // A surface container using the 'background' color from the theme

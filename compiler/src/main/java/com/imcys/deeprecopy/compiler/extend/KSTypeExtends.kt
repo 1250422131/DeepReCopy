@@ -87,12 +87,34 @@ fun KSTypeReference.isMutableSetType(): Boolean {
 }
 
 /**
+ * 检查是不是HashSet类型
+ */
+fun KSTypeReference.isHashSetType(): Boolean {
+    return checkTypeHierarchy("kotlin.collections.HashSet")
+}
+
+/**
+ * 检查是不是Map类型
+ */
+fun KSTypeReference.isMapType(): Boolean {
+    return checkTypeHierarchy("kotlin.collections.Map") || isHashMapType()
+}
+
+fun KSTypeReference.isMutableMapType(): Boolean {
+    return checkTypeHierarchy("kotlin.collections.MutableMap")
+}
+
+fun KSTypeReference.isHashMapType(): Boolean {
+    return checkTypeHierarchy("kotlin.collections.HashMap")
+}
+
+/**
  * 检查是否为可变集合->通用策略
  * @receiver KSTypeReference
  * @return Boolean
  */
 fun KSTypeReference.isMutableCollectionType(): Boolean {
-    return checkTypeHierarchy("kotlin.collections.MutableCollection")
+    return checkTypeHierarchy("kotlin.collections.MutableCollection") || isHashSetType()
 }
 
 fun KSTypeReference.existEmptyConstructor(): Boolean {
@@ -147,11 +169,11 @@ private fun KSTypeReference.checkTypeHierarchy(typeName: String): Boolean {
     var isType = false
 
     // 假设当前就是就不用判断了
-    if (this.fullyQualifiedTypeName() == typeName) return true
+    if (this.fullyQualifiedNotIncludedGenericsTypeName() == typeName) return true
 
     (this.resolve().declaration as? KSClassDeclaration)?.apply {
         for (superType in superTypes) {
-            val superClassType = superType.fullyQualifiedTypeName()
+            val superClassType = superType.fullyQualifiedNotIncludedGenericsTypeName()
             if (superClassType.contains(typeName)) {
                 isType = true
                 break
