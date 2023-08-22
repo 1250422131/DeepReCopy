@@ -169,7 +169,7 @@ private fun KSTypeReference.checkTypeHierarchy(typeName: String): Boolean {
     var isType = false
 
     // 假设当前就是就不用判断了
-    if (this.fullyQualifiedNotIncludedGenericsTypeName() == typeName) return true
+    if (this.fullyQualifiedNotIncludedGenericsTypeName().replace("?", "") == typeName) return true
 
     (this.resolve().declaration as? KSClassDeclaration)?.apply {
         for (superType in superTypes) {

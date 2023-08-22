@@ -29,7 +29,7 @@ val PUBLISH_GROUP_ID: String = gradleLocalProperties(rootDir).getProperty("PUBLI
 val PUBLISH_EMAIL: String = gradleLocalProperties(rootDir).getProperty("PUBLISH_EMAIL") ?: ""
 
 val mGroupId = "com.imcys.deeprecopy"
-val mVersion = "0.0.1-Alpha-13"
+val mVersion = "0.0.1-Beta-1"
 val mArtifactId = "core"
 
 group = mGroupId
