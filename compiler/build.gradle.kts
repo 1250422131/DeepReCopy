@@ -6,6 +6,7 @@ plugins {
     id("java-library")
     id("maven-publish")
     id("signing")
+    alias(libs.plugins.org.jetbrains.dokka)
 }
 
 dependencies {
@@ -37,6 +38,7 @@ java {
     withJavadocJar()
     withSourcesJar()
 }
+
 
 publishing {
     publications {
