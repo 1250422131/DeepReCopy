@@ -6,10 +6,9 @@ plugins {
     id("java-library")
     id("maven-publish")
     id("signing")
+    alias(libs.plugins.org.jetbrains.dokka)
 }
-
 java {
-
     sourceCompatibility = JavaVersion.VERSION_17
     targetCompatibility = JavaVersion.VERSION_17
 }

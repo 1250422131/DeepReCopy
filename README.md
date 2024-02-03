@@ -1,6 +1,5 @@
-
 <div align="center">
-    
+
 # DeepReCopy
 
 ![Maven Central](https://img.shields.io/maven-central/v/com.imcys.deeprecopy/core)
@@ -9,16 +8,26 @@
 
 </div>
 
-## 它可以做什么
+## Language:
 
-DeepReCopy是针对Kotlin的Data类所开发的深度拷贝功能库，利用KSP可以生成Data类的深度拷贝扩展方法，支持DSL写法。
+[English](README.md) | [中文](README-zh.md)
 
-## 如何使用
+## What can it do
 
-### 库的引入
-由于项目使用了KSP，需要在脚本顶部添加KSP插件，在每个使用KSP的模块都需要哦。
-DeepReCopy已经在Maven中央仓库提交，不需要额外导入其他仓库，可以直接按下面配置，最新版本号以本文件顶部Maven Central拉取结果版本号为准。
+DeepReCopy is a deep copy utility library developed for Kotlin's data classes. It utilizes KSP to
+generate deep copy extension methods for data classes, supporting DSL syntax.
+
+## How to use
+
+### Library Integration
+
+Since the project uses KSP, you need to add the KSP plugin at the top of your script, and it is
+required for each module that uses KSP.
+DeepReCopy has been submitted to the Maven Central repository, so there is no need to import
+additional repositories. You can directly configure it as shown below. The latest version should
+match the version obtained from the Maven Central badge at the top of this file.
 groovy
+
 ```groovy
 plugins {
     id 'com.google.devtools.ksp' version '1.9.0-1.0.11'
@@ -27,7 +36,9 @@ plugins {
 implementation 'com.imcys.deeprecopy:core:<version>'
 ksp 'com.imcys.deeprecopy:compiler:<version>'
 ```
+
 kts
+
 ```kotlin
 plugins {
     id("com.google.devtools.ksp") version "1.9.0-1.0.11"
@@ -37,14 +48,15 @@ implementation("com.imcys.deeprecopy:core:<version>")
 ksp("com.imcys.deeprecopy:compiler:<version>")
 ```
 
-## 为什么要深拷贝
+## Why deep copy?
 
-如果你已经了解为什么要深拷贝那就跳过下面
+If you already understand why deep copy is needed, you can skip the following section.
 
-设想一下，假如你在Compose中用数据类定义了一个界面的`State`，无论是我们用`Flow`
-还是`MutableState`来监听这个状态的变化，都会有一个问题。
+Imagine that you define the `State` of a user interface in Compose using a data class. Whether we
+use `Flow` or `MutableState` to listen for changes in this state, we encounter a problem.
 
-那就是更新数据，在`SateFlow`中，我们可以用类似下面这种方式更新数据，其中uiState是一个Kotlin的Data类。
+The problem is updating the data. In `StateFlow`, we can update the data using a syntax similar to
+the following, where `uiState` is a Kotlin data class:
 
 ```kotlin
 update {
@@ -52,13 +64,14 @@ update {
 }
 ```
 
-而用MutableState时要这样做
+When using `MutableState`, we need to do it like this:
 
 ```kotlin
 uiState = uiState.copy(property = "newContent")
 ```
 
-首先从写法上是不太优雅的，前者是dsl不贴切，后者是本质上写着就恶心，于是我们对后者迭代，就像是下面这样。
+First of all, the syntax is not elegant. The former is not appropriate for DSL, and the latter is
+simply unpleasant to write. So we iterate on the latter, like this:
 
 ```kotlin
 fun S.update(content: S.() -> S) {
@@ -66,52 +79,63 @@ fun S.update(content: S.() -> S) {
 }
 ```
 
-但这样都不够，无论那种情况，假设你只是对Data类进行了拷贝，尽管Data产生了新对象，但Data里的对象却没有重新new，而是直接把引用拿过来了，这会导致旧的Data内对象更新，但是你新的Data内对象也会更新，一旦有对比就发现他们是同一个东西，数据没有任何改变，这就要出问题了。
+But this is not enough. In either case, if you only perform a copy operation on the data class,
+although a new object is created for the data class, the objects inside the data class are not newly
+created. Instead, their references are directly copied. This will cause the objects inside the old
+data class to be updated, but the objects inside the new data class will also be updated. Once
+compared, it is found that they are the same, and no data changes have occurred. This can lead to
+problems.
 
-除此以外，你可能还会在`Recyclerview`用`ListAdapter`,它就要求Data类必须是新对象，才会继续监听内部变化，这就很有可能会出现上面的情况。
+In addition, you may also use `ListAdapter` in `RecyclerView`, which requires the data class to be a
+new object in order to continue listening for internal changes. This can often lead to the situation
+described above.
 
-## 快速开始
+## Getting Started
 
-### 认识DeepReCopy注解
+### Understanding the DeepReCopy Annotations
 
-DeepReCopy现阶段提供了一个注解，`EnhancedData`和未实现的计划注解`DeepCopy`
-，分别用来注解Data类和需要被深拷贝的Class类，后者通常是需要深拷贝的非Data类，导入你现在可以直接给非Data类注解@EnhancedData，但是不确定是否有意料之外的问题。
+At this stage, DeepReCopy provides an annotation called `EnhancedData` and a planned annotation
+called `DeepCopy`, which are used to annotate data classes and non-data classes that need to be deep
+copied, respectively. Currently, you can directly annotate non-data classes with `@EnhancedData`,
+but there may be unexpected issues.
 
-让我们试试看？
+Let's give it a try, shall we?
 
-EnhancedData是用来增强Data类的，现阶段它只有对Data类进行扩展的功能，可以让Data深拷贝的同时支持DSL写法。
+`EnhancedData` is used to enhance data classes. Currently, it only provides the ability to extend
+data classes, allowing them to be deep copied while supporting DSL syntax.
 
-我们看一则例子：
+Let's take an example:
 
 ```kotlin
     @EnhancedData
-    data class AData(val name: String, val title: String, val bData: BData)
-    
-    @EnhancedData
-    data class BData(val doc: String, val content: String)
+data class AData(val name: String, val title: String, val bData: BData)
+
+@EnhancedData
+data class BData(val doc: String, val content: String)
 ```
 
-当对AData和BData顶上注解后我们点击Android Studio的Build。
+After annotating `AData` and `BData` with `EnhancedData`, we click Build in Android Studio.
 
 ```kotlin
 data class _ADataCopyFun(
-    var name : kotlin.String,
-    var title : kotlin.String,
-    var bData : com.imcys.deeprecopy.demo.BData,
+    var name: kotlin.String,
+    var title: kotlin.String,
+    var bData: com.imcys.deeprecopy.demo.BData,
 )
 
 
 fun AData.deepCopy(
-    name : kotlin.String = this.name,
-    title : kotlin.String = this.title,
-    bData : com.imcys.deeprecopy.demo.BData = this.bData,
+    name: kotlin.String = this.name,
+    title: kotlin.String = this.title,
+    bData: com.imcys.deeprecopy.demo.BData = this.bData,
 ): AData {
     return AData(name, title, bData.deepCopy())
 }
 
 
 fun AData.deepCopy(
-    copyFunction:_ADataCopyFun.()->Unit): AData{
+    copyFunction: _ADataCopyFun.() -> Unit
+): AData {
     val copyData = _ADataCopyFun(name, title, bData)
     copyData.copyFunction()
     return this.deepCopy(copyData.name, copyData.title, copyData.bData)
@@ -119,8 +143,12 @@ fun AData.deepCopy(
 
 
 ```
-其中@EnhancedData是注解需要扩展深拷贝函数的Data类，其中因为BData也在AData中，所以也需要给BData注解EnhancedData。
-这是生成后的数据类，事实上，我们发现deepCopy重新返回了一个新的AData，同时，bData也被重新new了一个出来，这就确保了内部对象确实发生了改变。
+
+The `@EnhancedData` annotation is used to indicate the data class that needs to be extended with a
+deep copy function. Since `BData` is also used in `AData`, it also needs to be annotated
+with `EnhancedData`. This is the generated data class. In fact, we can see that `deepCopy` now
+returns a new `AData`, and `bData` is also newly created, ensuring that the internal objects have
+indeed changed.
 
 ```kotlin
 var aData = AData("name", "title", BData("doc", "content"))
@@ -130,12 +158,17 @@ aData = aData.deepCopy {
 }
 ```
 
-接下来我们只需要这样写就可以完成对aData的深拷贝了，当然，这样的写法对`MutableState`不太友好，这个会等后面进行更近。
+Now we can perform a deep copy of `aData` by simply writing it like this. Of course, this syntax is
+not very friendly to `MutableState`, which will be addressed later.
 
-以上就是它目前支持的完整用法
+This is the complete usage of DeepReCopy at the moment.
 
-## 特别注意
-DeepCopy还在测试阶段，可能会遇到一些意料之外的问题，如果你要使用，请确保符合上面的使用规则，有任何问题可以提issue ❤。
+## Special Note
 
-## 源代码相关
-DeepCopy源代码仍然在整理，它现在会比较乱。
+DeepCopy is still in the testing phase and may encounter some unexpected issues. If you want to use
+it, please make sure to follow the usage rules mentioned above. If you have any problems, please
+feel free to open an issue ❤.
+
+## Source Code Related
+
+The source code for DeepCopy is still being organized, so it may be messy at the moment.

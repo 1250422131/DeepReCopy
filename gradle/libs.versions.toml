@@ -12,8 +12,12 @@ org-jetbrains-kotlin-jvm = "1.8.10"
 com-google-devtools-ksp = "1.8.10-1.0.9"
 kotlin-plugin-serialization = "1.8.10"
 org-jetbrains-kotlinx = "1.5.1"
+org-jetbrains-dokka = "1.8.10"
+dokka-base = "1.8.10"
+
 [libraries]
 core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "core-ktx" }
+dokka-base = { module = "org.jetbrains.dokka:dokka-base", version.ref = "dokka-base" }
 junit = { group = "junit", name = "junit", version.ref = "junit" }
 androidx-test-ext-junit = { group = "androidx.test.ext", name = "junit", version.ref = "androidx-test-ext-junit" }
 espresso-core = { group = "androidx.test.espresso", name = "espresso-core", version.ref = "espresso-core" }
@@ -37,6 +41,6 @@ org-jetbrains-kotlin-android = { id = "org.jetbrains.kotlin.android", version.re
 org-jetbrains-kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "org-jetbrains-kotlin-jvm" }
 com-google-devtools-ksp = { id = "com.google.devtools.ksp", version.ref = "com-google-devtools-ksp" }
 kotlin-plugin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin-plugin-serialization" }
-
+org-jetbrains-dokka = { id = "org.jetbrains.dokka", version.ref = "org-jetbrains-dokka" }
 [bundles]
 

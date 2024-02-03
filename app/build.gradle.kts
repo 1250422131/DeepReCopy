@@ -5,7 +5,6 @@ plugins {
     alias(libs.plugins.com.google.devtools.ksp)
     alias(libs.plugins.kotlin.plugin.serialization)
 }
-
 android {
     namespace = "com.imcys.deeprecopy"
     compileSdk = 33
@@ -51,6 +50,7 @@ android {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
         }
     }
+
 }
 
 kotlin {
