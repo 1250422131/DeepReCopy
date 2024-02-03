@@ -1,17 +1,18 @@
 package com.imcys.deeprecopy.demo
 
 import com.imcys.deeprecopy.an.EnhancedData
+import com.imcys.deeprecopy.common.viewmodel.DData
+import java.sql.Time
 import java.util.Date
-
 @EnhancedData
 data class AData(
     val name: Int,
-    val title: String,
-    val bDatas: BData,
+    val title: String?,
+    val bDatas: Edata, // 嵌套类
     val onComplete: (Boolean) -> Unit,
     val Set1: Set<BData>,
     val Set2: Set<BData>?,
-    val Set3: Set<BData?>,
+    val Set3: Set<DData?>, // 非同包
     val Set4: Set<BData?>?,
     val MutableSet1: MutableSet<BData>,
     val MutableSet2: MutableSet<BData>?,
@@ -34,11 +35,14 @@ data class AData(
     val MutableList3: MutableList<BData?>,
     val MutableList4: MutableList<BData?>?,
     val List1: List<Date>,
-    val List2: List<BData>?,
+    val List2: List<List<Time>>?, // 多层泛型
     val List3: List<BData?>,
     val List4: List<BData?>?,
     val Array1: Array<Date>,
     val Array2: Array<BData>?,
     val Array3: Array<BData?>,
     val Array4: Array<BData?>?,
-)
+){
+    @EnhancedData
+    data class Edata(val demo:String)
+}

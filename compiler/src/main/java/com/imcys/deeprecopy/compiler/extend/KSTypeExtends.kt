@@ -139,7 +139,7 @@ fun KSTypeReference.fullyQualifiedTypeName(): String {
         typeArgs.forEachIndexed { index, typeArgument ->
             val mType = typeArgument.type?.resolve()
             typeName.append(
-                "${typeArgument.variance.label} ${mType?.declaration?.qualifiedName?.asString() ?: "ERROR"}" +
+                "${typeArgument.variance.label} ${typeArgument.type?.fullyQualifiedTypeName()?.replace("?","") ?: "ERROR"}" +
                     if (mType?.nullability == Nullability.NULLABLE) "?" else "",
             )
 

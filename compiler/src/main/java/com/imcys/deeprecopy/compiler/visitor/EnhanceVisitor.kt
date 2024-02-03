@@ -33,6 +33,7 @@ class EnhanceVisitor(
 
     private val tag = "DeepReCopy->${this::class.simpleName}:"
     private val logger = environment.logger
+    private lateinit var fullQualifiedClassName: String
 
     override fun visitClassDeclaration(classDeclaration: KSClassDeclaration, data: Unit) {
         super.visitClassDeclaration(classDeclaration, data)
@@ -45,6 +46,7 @@ class EnhanceVisitor(
         val params = primaryConstructor.parameters
         val className = classDeclaration.simpleName.asString()
         val packageName = classDeclaration.packageName.asString()
+        fullQualifiedClassName = classDeclaration.qualifiedName?.asString() ?: "$packageName.$className"
 
         logger.info("$tag ClassProcessed->$className")
 
@@ -79,7 +81,6 @@ class EnhanceVisitor(
         className: String,
         params: List<KSValueParameter>,
     ): String {
-        // 生成临时类
         val complexClassName = "_${className}CopyFun"
 
         // 临时类参数构建
@@ -139,19 +140,19 @@ class EnhanceVisitor(
         )
         
         // 新增深拷贝扩展函数代码
-        fun $className.deepCopy(
+        fun $fullQualifiedClassName.deepCopy(
             $funParamsString
-        ): $className {
+        ): $fullQualifiedClassName {
         
             ${getMutableCollectionDeepCopyCode(params)}
             ${getMapDeepCopyCode(params)}
-            return $className($deepCopyParamsString)
+            return $fullQualifiedClassName($deepCopyParamsString)
         }
         
         // 新增DSL写法的深拷贝扩展函数代码
-        fun $className.deepCopy(
+        fun $fullQualifiedClassName.deepCopy(
             copyFunction:$complexClassName.()->Unit
-            ): $className{
+            ): $fullQualifiedClassName{
             val copyData = $complexClassName($deepCopyDSLParamsString)
             copyData.copyFunction()
             return this.deepCopy($copyDataParamsString)
